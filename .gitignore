@@ -1,0 +1,23 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+env/
+.env
+
+# Project Data Directories
+content/
+content_processed/
+content_embedded/
+data/
+
+# Specific File Extensions to Ignore
+*.json
+*.csv
+*.xml
+*.backup.git
+*_error.txt
+
+# Documentation
+*.md
+!README.md
