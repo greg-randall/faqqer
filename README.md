@@ -2,6 +2,13 @@
 
 This project takes a WordPress XML export from a WordPress site. It turns that file into a clean database of "Atomic Facts" and then builds a full FAQ.
 
+## Quick Start
+
+1.  **Install:** `pip install openai pandas scikit-learn markdownify numpy`
+2.  **Configure:** Set `export OPENAI_API_KEY="sk-..."`
+3.  **Run:** `python run_pipeline.py <your_wordpress_export.xml>`
+4.  **Review:** Follow the on-screen instructions to review FAQs in your browser.
+
 ## Pipeline Overview
 
 The project has ten steps. It goes from raw HTML to a categorized, approved FAQ.
