@@ -21,3 +21,8 @@ data/
 # Documentation
 *.md
 !README.md
+!CLAUDE.md
+!CODE_REVIEW.md
+
+# Test fixtures (allow)
+!tests/fixtures/*
