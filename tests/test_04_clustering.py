@@ -84,13 +84,13 @@ class TestClustering:
     def test_max_cluster_size(self, cluster_module, tmp_path):
         """No non-noise cluster should exceed MAX_CLUSTER_SIZE after splitting."""
         np.random.seed(42)
-        # Create 30 facts that are similar (will cluster together, forcing splits)
-        base_vector = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+        # Create 30 facts with enough spread to survive dedup but cluster together
         facts = []
         for i in range(30):
-            noise = np.random.randn(5) * 0.01
-            vec = (base_vector + noise).tolist()
-            facts.append({"text": f"Similar fact {i}", "vector": vec})
+            # Spread vectors enough to avoid dedup (similarity < 0.95)
+            # but keep in same general region
+            vec = np.random.randn(50).tolist()  # higher dim for better clustering
+            facts.append({"text": f"Unique fact number {i} with distinct content", "vector": vec})
 
         self._make_embedded_file(tmp_path, "test.json", facts)
         output_file = str(tmp_path / "clusters.csv")

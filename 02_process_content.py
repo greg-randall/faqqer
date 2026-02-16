@@ -74,8 +74,8 @@ def process_files(limit=None):
     # Sort files to ensure deterministic order (useful for debugging)
     files.sort()
 
-    # Apply limit if provided
-    if limit is not None:
+    # Apply limit if provided (positive integer only)
+    if limit is not None and limit > 0:
         files = files[:limit]
         print(f"Debug Mode: Processing only the first {limit} files.")
     
