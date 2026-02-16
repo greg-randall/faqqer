@@ -75,7 +75,7 @@ def process_files(limit=None):
     files.sort()
 
     # Apply limit if provided
-    if limit:
+    if limit is not None:
         files = files[:limit]
         print(f"Debug Mode: Processing only the first {limit} files.")
     
@@ -98,7 +98,7 @@ def process_files(limit=None):
         with open(input_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Send to Azure OpenAI with INCREASED max_tokens
+        # Send to OpenAI with INCREASED max_tokens
         response_json_str = openai_helper.openai_llm_request(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=content,

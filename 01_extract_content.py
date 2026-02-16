@@ -43,9 +43,8 @@ def parse_wordpress_xml(file_path, output_dir):
         if status != 'publish':
             continue
 
-        title = item.find('title').text
-        if not title:
-            title = "Untitled"
+        title_obj = item.find('title')
+        title = title_obj.text if title_obj is not None and title_obj.text else "Untitled"
             
         # Grab the Post ID as a fallback unique identifier
         post_id_obj = item.find('wp:post_id', namespaces)
@@ -97,7 +96,7 @@ def parse_wordpress_xml(file_path, output_dir):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python extract_content_v2.py <path_to_xml_file>")
+        print("Usage: python 01_extract_content.py <path_to_xml_file>")
         sys.exit(1)
 
     input_file = sys.argv[1]

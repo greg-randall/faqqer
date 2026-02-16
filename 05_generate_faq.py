@@ -84,7 +84,8 @@ def generate_faq(test_limit=None):
         
         # Safety Truncation for Prompt (save tokens)
         if len(prompt_facts_text) > 40:
-            prompt_facts_text = prompt_facts_text[:40] 
+            print(f"  Warning: Truncating {len(prompt_facts_text)} facts to 40 for topic {label}")
+            prompt_facts_text = prompt_facts_text[:40]
 
         print(f"[{i+1}/{total_clusters}] Processing Topic {label}...")
         
@@ -116,7 +117,8 @@ Writing style:
                 
                 entry = {
                     "id": str(label),
-                    "questions": data['question'],
+                    "questions": data['question'],  # single string despite plural name (legacy schema)
+
                     "answer": data['synthesized_answer'],
                     # The linked list goes here:
                     "source_facts": linked_facts,

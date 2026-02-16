@@ -54,7 +54,7 @@ def main():
     for category in sorted(grouped_data.keys()):
         # Category Heading
         cat_esc = html.escape(category)
-        wp_html.append(f'<!-- wp:heading {"level":2} -->')
+        wp_html.append('<!-- wp:heading {"level":2} -->')
         wp_html.append(f'<h2 class="wp-block-heading">{cat_esc}</h2>')
         wp_html.append('<!-- /wp:heading -->')
         wp_html.append('')  # empty line for readability
