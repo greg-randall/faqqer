@@ -10,6 +10,7 @@ content/
 content_processed/
 content_embedded/
 data/
+runs/
 
 # Specific File Extensions to Ignore
 *.json

@@ -1,6 +1,11 @@
 import os
 import yaml
 
+
+def get_run_dir():
+    """Return the active run directory from FAQQER_RUN_DIR env var, or '.' for backward compat."""
+    return os.environ.get('FAQQER_RUN_DIR', '.')
+
 _CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yaml")
 
 def _load():
