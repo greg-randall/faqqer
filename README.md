@@ -1,6 +1,6 @@
 # Faqqer: WordPress to structured FAQ pipeline
 
-Faqqer converts WordPress exports into structured FAQ databases for both human readers and Answer Engine Optimization (AEO). The pipeline atomizes website pages into standalone facts to improve the accuracy of LLM-driven search and automated support systems. By generating verified Q&A pairs, it helps organizations provide direct answers to specific queries instead of requiring users to search through long-form landing pages.
+Faqqer converts WordPress exports into structured FAQs for both human readers and Answer Engine Optimization (AEO). The pipeline atomizes website pages into standalone facts to improve the accuracy of LLM-driven search and automated support systems. By generating verified Q&A pairs, it helps organizations provide direct answers to specific queries instead of requiring users to search through long-form landing pages.
 
 ## Quick Start
 
@@ -27,6 +27,32 @@ The project uses an 8-step process to go from raw XML to a categorized FAQ.
 ### 2. Helper Modules
 
 * `openai_helper.py`: Manages OpenAI API calls, including error handling and batching.
+
+---
+
+## How it Works: A Concrete Example
+
+Faqqer bridges the gap between long-form pages and specific answers by breaking down and then re-clustering information.
+
+### 1. The Source Pages
+*   **Page A (Academic Calendar):** "The Fall 2025 orientation for new employees is scheduled for August 11-15. This is a mandatory event for all full-time staff."
+*   **Page B (Employee Onboarding):** "New hires must attend a five-day orientation. For the 2025 academic year, this session begins on August 11 and concludes on August 15."
+
+### 2. Extracted "Atomic Facts"
+The pipeline extracts standalone statements, injecting context so each fact is independent:
+*   "The Fall 2025 orientation for new employees is August 11-15."
+*   "The Fall 2025 new employee orientation is mandatory for all full-time staff."
+*   "New hires at the organization must attend a five-day orientation session."
+
+### 3. Semantic Clustering
+The system recognizes that these facts from different pages describe the same topic and groups them into a single cluster:
+*   **Cluster Topic:** New Employee Orientation Dates
+*   **Linked Facts:** Facts from both Page A and Page B regarding the August 11-15 window.
+
+### 4. Synthesized FAQ
+An LLM uses the cluster's facts to write a concise, verified answer:
+*   **Question:** "What are the dates for the Fall 2025 new employee orientation?"
+*   **Answer:** "The orientation for new employees is scheduled from August 11 through August 15, 2025."
 
 ---
 
