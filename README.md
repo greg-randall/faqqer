@@ -1,6 +1,6 @@
 # Faqqer: WordPress to structured FAQ pipeline
 
-Faqqer is a data pipeline that converts WordPress XML exports into structured FAQ databases. It breaks down website pages into standalone "Atomic Facts," clusters them by topic, and generates Q&A pairs for both search engines and human readers.
+Faqqer converts WordPress content into structured data for Answer Engine Optimization (AEO). This pipeline atomizes website pages into standalone facts to improve accuracy in LLM-driven search and automated FAQ systems. By structuring data into verified Q&A pairs, it helps organizations provide direct, verifiable answers to specific user queries rather than just landing pages.
 
 ## Quick Start
 
