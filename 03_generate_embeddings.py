@@ -1,6 +1,6 @@
 import os
 import json
-import openai_helper_embedding
+import openai_helper
 
 # Configuration
 INPUT_DIR = "content_processed"
@@ -55,8 +55,8 @@ def process_embeddings():
         # We assume data['facts'] is a list of strings
         facts_text = data['facts']
         
-        # Call Azure (The helper handles batching/auth)
-        embeddings = openai_helper_embedding.get_embeddings(facts_text)
+        # Call OpenAI (The helper handles batching)
+        embeddings = openai_helper.get_embeddings(facts_text)
 
         if not embeddings:
             print(f"  Error: API failed for {filename}")
@@ -82,7 +82,7 @@ def process_embeddings():
 
         # 5. Save to Cache
         with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f) # No indent to save space? Or indent=2 for debug.
+            json.dump(data, f, indent=2)
             
     print("\nEmbedding process complete.")
 
