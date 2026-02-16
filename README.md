@@ -35,26 +35,116 @@ The project follows a streamlined 8-step pipeline from raw XML to a categorized,
 ### Phase 1: Clean Markdown (`/content/`)
 Each file represents a website page with metadata headers (`Source URL`, `ID`).
 
+```markdown
+# Academic Calendar
+**Source URL:** https://example.edu/academics/calendar/
+**ID:** 1245
+
+## Fall 2025 Semester
+* Orientation begins August 11...
+```
+
 ### Phase 2: Atomic Facts JSON (`/content_processed/`)
 LLM-extracted facts with resolved context (e.g., pronouns replaced with entities).
+
+```json
+{
+  "page_topic": "Academic Calendar",
+  "facts": [
+    "The Fall 2025 Orientation for New Employees is from Monday, August 11 through Friday, August 15.",
+    "The Fall 2025 registration bills are available on the portal on August 15."
+  ],
+  "source_file": "academics_calendar.md"
+}
+```
 
 ### Phase 3: Embedded Facts JSON (`/content_embedded/`)
 Same as Phase 2, but including high-dimensional vector arrays for clustering.
 
+```json
+{
+  "page_topic": "Academic Calendar",
+  "facts_with_embeddings": [
+    {
+      "text": "The Fall 2025 Orientation...",
+      "vector": [0.0123, -0.0456, 0.0098, ... ]
+    }
+  ]
+}
+```
+
 ### Phase 4: Cluster Report (`data/fact_clusters.csv`)
 A mapping of every fact to a hierarchical cluster label (e.g., `0_5_1`).
+
+| cluster_label | source | fact |
+| --- | --- | --- |
+| 5_1 | hr_calendar.json | The Fall 2025 Orientation... |
+| 5_1 | employees_events.json | Orientation is mandatory for new hires... |
+| 12_0 | admissions_fees.json | The application fee is $50... |
 
 ### Phase 5: FAQ JSON (`data/faq_raw.json`)
 Initial Q&A pairs generated from clusters, including linked source facts.
 
+```json
+[
+  {
+    "id": "5_1",
+    "questions": "When is orientation for new employees?",
+    "answer": "Orientation for new employees runs from Monday, August 11 through Friday, August 15.",
+    "source_facts": [
+      {
+        "fact": "The Fall 2025 Orientation...",
+        "source": "academics_calendar.md"
+      }
+    ],
+    "verified": false
+  }
+]
+```
+
 ### Phase 6: Enriched FAQ (`data/faq_categorized.json`)
 The production-ready JSON. Contains categories, live URLs, audit status (hallucination check), and utility scores (1-10).
+
+```json
+{
+  "id": "5_1",
+  "questions": "When is orientation for new employees?",
+  "answer": "Orientation runs from August 11-15.",
+  "category": "Human Resources",
+  "source_facts": [
+    {
+      "fact": "The Fall 2025 Orientation...",
+      "source": "academics_calendar.md",
+      "live_url": "https://example.edu/academics/calendar/"
+    }
+  ],
+  "audit_status": "PASS",
+  "utility_score": 9.2
+}
+```
 
 ### Phase 7: Reviewed FAQ
 Updated version of the enriched JSON after manual intervention via the PHP reviewer tool.
 
+```json
+{
+  "id": "5_1",
+  "status": "approved",
+  "admin_notes": "Verified against HR handbook.",
+  "verified": true
+}
+```
+
 ### Phase 8: WordPress HTML (`data/faq_final.html`)
 Final output containing only `approved` items, sorted by category and utility score.
+
+```html
+<h2 class="wp-block-heading">Human Resources</h2>
+<details class="wp-block-details">
+  <summary>When is orientation for new employees?</summary>
+  <p>Orientation runs from August 11-15.</p>
+</details>
+```
 
 ---
 
