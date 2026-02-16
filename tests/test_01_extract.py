@@ -51,6 +51,91 @@ class TestExtractContent:
         assert "# About Us" in content
         assert "**Source URL:** https://example.com/about/" in content
 
+    def test_empty_content_skipped(self, extract_module, tmp_path):
+        """Items with empty content should be skipped."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+  xmlns:wp="http://wordpress.org/export/1.2/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+  <item>
+    <title>Empty Page</title>
+    <link>https://example.com/empty/</link>
+    <wp:post_id>88</wp:post_id>
+    <wp:post_type>page</wp:post_type>
+    <wp:status>publish</wp:status>
+    <content:encoded><![CDATA[]]></content:encoded>
+  </item>
+</channel>
+</rss>"""
+        xml_path = str(tmp_path / "empty.xml")
+        with open(xml_path, 'w') as f:
+            f.write(xml_content)
+
+        output_dir = str(tmp_path / "content")
+        extract_module.parse_wordpress_xml(xml_path, output_dir)
+
+        files = os.listdir(output_dir) if os.path.exists(output_dir) else []
+        assert len(files) == 0
+
+    def test_homepage_url_filename(self, extract_module, tmp_path):
+        """Homepage URL (empty path) should produce homepage.md filename."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+  xmlns:wp="http://wordpress.org/export/1.2/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+  <item>
+    <title>Home</title>
+    <link>https://example.com/</link>
+    <wp:post_id>1</wp:post_id>
+    <wp:post_type>page</wp:post_type>
+    <wp:status>publish</wp:status>
+    <content:encoded><![CDATA[<p>Welcome home.</p>]]></content:encoded>
+  </item>
+</channel>
+</rss>"""
+        xml_path = str(tmp_path / "home.xml")
+        with open(xml_path, 'w') as f:
+            f.write(xml_content)
+
+        output_dir = str(tmp_path / "content")
+        extract_module.parse_wordpress_xml(xml_path, output_dir)
+
+        files = os.listdir(output_dir)
+        assert "homepage.md" in files
+
+    def test_no_link_fallback_filename(self, extract_module, tmp_path):
+        """Items with no <link> should use post ID + title as filename."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+  xmlns:wp="http://wordpress.org/export/1.2/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+  <item>
+    <title>No Link Page</title>
+    <wp:post_id>77</wp:post_id>
+    <wp:post_type>page</wp:post_type>
+    <wp:status>publish</wp:status>
+    <content:encoded><![CDATA[<p>Page without a link element.</p>]]></content:encoded>
+  </item>
+</channel>
+</rss>"""
+        xml_path = str(tmp_path / "nolink.xml")
+        with open(xml_path, 'w') as f:
+            f.write(xml_content)
+
+        output_dir = str(tmp_path / "content")
+        extract_module.parse_wordpress_xml(xml_path, output_dir)
+
+        files = os.listdir(output_dir)
+        assert len(files) == 1
+        # Should contain the post ID
+        assert "77" in files[0]
+
     def test_missing_title_defaults_to_untitled(self, extract_module, tmp_path):
         """Items with missing <title> element should default to 'Untitled'."""
         import xml.etree.ElementTree as ET

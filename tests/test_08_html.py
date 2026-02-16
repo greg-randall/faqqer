@@ -30,7 +30,7 @@ class TestGenerateWpHtml:
         # Only 1 approved item in fixture
         assert "organization&#x27;s mission" in html or "organization's mission" in html.replace("&#x27;", "'")
         # Rejected item should NOT appear
-        assert "program cost" not in html.lower() or "rejected" not in html.lower()
+        assert "program cost" not in html.lower()
 
     def test_wp_block_format(self, html_module, tmp_path):
         """Output should contain WordPress block comments."""

@@ -84,6 +84,24 @@ class TestGenerateEmbeddings:
 
         mock_embed.assert_not_called()
 
+    def test_empty_embeddings_skips_file(self, embed_module, tmp_path):
+        """When get_embeddings returns [], file should be skipped (no output)."""
+        input_dir = str(tmp_path / "content_processed")
+        output_dir = str(tmp_path / "content_embedded")
+        os.makedirs(input_dir)
+
+        input_data = {"page_topic": "T", "facts": ["F1"], "source_file": "t.md"}
+        with open(os.path.join(input_dir, "t.json"), 'w') as f:
+            json.dump(input_data, f)
+
+        with patch.object(embed_module, 'INPUT_DIR', input_dir), \
+             patch.object(embed_module, 'OUTPUT_DIR', output_dir), \
+             patch.object(embed_module.openai_helper, 'get_embeddings', return_value=[]):
+            embed_module.process_embeddings()
+
+        output_path = os.path.join(output_dir, "t.json")
+        assert not os.path.exists(output_path)
+
     def test_indent_in_output(self, embed_module, tmp_path):
         """Output JSON should be indented (regression test for missing indent=2)."""
         input_dir = str(tmp_path / "content_processed")

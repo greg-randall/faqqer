@@ -35,8 +35,8 @@ class TestPhaseCategories:
         with patch.object(enrich_module.openai_helper, 'openai_llm_request', return_value="not json"):
             enrich_module.phase_categorize(data)
 
-        # Should not crash — entries won't have categories but no exception
-        assert True
+        # Should not crash — entries won't have categories
+        assert "category" not in data[0]
 
 
 class TestPhaseUrlEnrichment:
@@ -85,8 +85,8 @@ class TestPhaseUrlEnrichment:
         with patch.object(enrich_module, 'CONTENT_DIR', content_dir):
             enrich_module.phase_url_enrichment(data)
 
-        # Should find a URL (from the first source)
-        assert data[0]["source_facts"][0]["live_url"] == "https://example.com/a/"
+        # Should find both URLs as a list (multi-source)
+        assert data[0]["source_facts"][0]["live_url"] == ["https://example.com/a/", "https://example.com/b/"]
 
     def test_missing_file_returns_none(self, enrich_module, tmp_path):
         """Missing source files should result in live_url=None."""
@@ -147,6 +147,15 @@ class TestPhaseAuditScore:
 
         for entry in data:
             assert 1 <= entry["utility_score"] <= 10
+
+    def test_audit_api_failure_skips_entry(self, enrich_module):
+        """If audit API fails, entry should not get audit_status but no crash."""
+        data = [{"id": "1", "questions": "Q?", "answer": "A.", "source_facts": [{"fact": "F"}]}]
+
+        with patch.object(enrich_module.openai_helper, 'openai_llm_request', return_value=None):
+            enrich_module.phase_audit_and_score(data)
+
+        assert "audit_status" not in data[0]
 
     def test_atomic_write(self, enrich_module, tmp_path):
         """Main should write output atomically via tempfile+replace."""

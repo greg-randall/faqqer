@@ -60,6 +60,29 @@ class TestGenerateFaq:
         ids = [entry["id"] for entry in data]
         assert not any("noise" in str(id_) for id_ in ids)
 
+    def test_api_returns_none_cluster_skipped(self, faq_module, tmp_path):
+        """When API returns None for a cluster, others should still be written."""
+        input_csv = fixture_path("sample_clusters.csv")
+        output_json = str(tmp_path / "faq_raw.json")
+
+        mock_response = json.dumps({
+            "question": "Q?",
+            "synthesized_answer": "A."
+        })
+
+        # First call returns None (failure), second succeeds
+        with patch.object(faq_module, 'INPUT_CSV', input_csv), \
+             patch.object(faq_module, 'OUTPUT_JSON', output_json), \
+             patch.object(faq_module.openai_helper, 'openai_llm_request',
+                         side_effect=[None, mock_response]):
+            faq_module.generate_faq()
+
+        with open(output_json) as f:
+            data = json.load(f)
+
+        # One cluster failed, one succeeded — should have 1 entry
+        assert len(data) == 1
+
     def test_truncation_warning(self, faq_module, tmp_path, capsys):
         """Should warn when truncating facts beyond 40."""
         import pandas as pd

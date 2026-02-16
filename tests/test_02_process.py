@@ -62,6 +62,42 @@ class TestProcessContent:
 
         mock_llm.assert_not_called()
 
+    def test_api_returns_none_no_output(self, process_module, tmp_path):
+        """When API returns None, no output file should be created."""
+        input_dir = str(tmp_path / "content")
+        output_dir = str(tmp_path / "content_processed")
+        os.makedirs(input_dir)
+        os.makedirs(output_dir)
+
+        with open(os.path.join(input_dir, "test.md"), 'w') as f:
+            f.write("# Test\n**Source URL:** https://example.com\n\nContent.")
+
+        with patch.object(process_module, 'INPUT_DIR', input_dir), \
+             patch.object(process_module, 'OUTPUT_DIR', output_dir), \
+             patch.object(process_module.openai_helper, 'openai_llm_request', return_value=None):
+            process_module.process_files()
+
+        output_path = os.path.join(output_dir, "test.json")
+        assert not os.path.exists(output_path)
+
+    def test_invalid_json_writes_error_file(self, process_module, tmp_path):
+        """When LLM returns invalid JSON, an _error.txt should be written."""
+        input_dir = str(tmp_path / "content")
+        output_dir = str(tmp_path / "content_processed")
+        os.makedirs(input_dir)
+        os.makedirs(output_dir)
+
+        with open(os.path.join(input_dir, "test.md"), 'w') as f:
+            f.write("# Test\n**Source URL:** https://example.com\n\nContent.")
+
+        with patch.object(process_module, 'INPUT_DIR', input_dir), \
+             patch.object(process_module, 'OUTPUT_DIR', output_dir), \
+             patch.object(process_module.openai_helper, 'openai_llm_request', return_value="not valid json{"):
+            process_module.process_files()
+
+        error_path = os.path.join(output_dir, "test_error.txt")
+        assert os.path.exists(error_path)
+
     def test_limit_zero_processes_all(self, process_module, tmp_path):
         """limit=0 should NOT truncate the file list (regression for `if limit:` bug)."""
         input_dir = str(tmp_path / "content")

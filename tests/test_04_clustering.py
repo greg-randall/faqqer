@@ -101,9 +101,9 @@ class TestClustering:
 
         df = pd.read_csv(output_file)
         non_noise = df[~df['cluster_label'].str.endswith('_noise')]
-        if len(non_noise) > 0:
-            sizes = non_noise['cluster_label'].value_counts()
-            assert sizes.max() <= cluster_module.MAX_CLUSTER_SIZE
+        assert len(non_noise) > 0
+        sizes = non_noise['cluster_label'].value_counts()
+        assert sizes.max() <= cluster_module.MAX_CLUSTER_SIZE
 
     def test_noise_labels(self, cluster_module, tmp_path):
         """Noise clusters should have labels ending in '_noise'."""
