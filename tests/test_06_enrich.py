@@ -170,7 +170,8 @@ class TestPhaseAuditScore:
              patch.object(enrich_module, 'OUTPUT_FILE', output_file), \
              patch.object(enrich_module, 'CONTENT_DIR', str(tmp_path / "content")), \
              patch.object(enrich_module.openai_helper, 'openai_llm_request',
-                         side_effect=[taxonomy_resp, classify_resp, audit_resp, eval_resp]):
+                         side_effect=[taxonomy_resp, classify_resp, audit_resp, eval_resp]), \
+             patch('sys.argv', ['06_enrich_faq.py']):
             os.makedirs(tmp_path / "content", exist_ok=True)
             enrich_module.main()
 

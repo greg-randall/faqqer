@@ -108,14 +108,19 @@ class TestClustering:
     def test_noise_labels(self, cluster_module, tmp_path):
         """Noise clusters should have labels ending in '_noise'."""
         np.random.seed(42)
-        # Mix of clustered and outlier facts
+        # Need enough distinct facts to survive dedup and trigger HDBSCAN noise
         facts = []
-        # 10 similar facts
+        # 10 facts in a tight cluster (distinct enough to survive dedup)
         for i in range(10):
-            facts.append({"text": f"Similar {i}", "vector": [1.0 + i*0.001, 0, 0, 0, 0]})
-        # 3 outliers (too few for a cluster)
+            vec = np.random.randn(50).tolist()
+            # Shift cluster center
+            vec[0] += 10.0
+            facts.append({"text": f"Clustered fact {i} unique", "vector": vec})
+        # 3 outliers far from the cluster (too few for min_cluster_size=5)
         for i in range(3):
-            facts.append({"text": f"Outlier {i}", "vector": [0, 0, 0, 0, float(i+1)]})
+            vec = np.zeros(50).tolist()
+            vec[i + 10] = 100.0  # each outlier in a different direction
+            facts.append({"text": f"Outlier fact {i} isolated", "vector": vec})
 
         self._make_embedded_file(tmp_path, "test.json", facts)
         output_file = str(tmp_path / "clusters.csv")
