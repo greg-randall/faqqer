@@ -153,9 +153,12 @@ def recursive_cluster(df):
 
     return df
 
+NOISE_RECOVERY_THRESHOLD = 0.6  # Only recover noise facts with similarity above this
+
 def recover_noise(df):
     """
-    Assign noise facts to their nearest non-noise cluster by cosine similarity.
+    Recover noise facts that are close enough to a real cluster.
+    Facts below NOISE_RECOVERY_THRESHOLD stay as noise (and never become FAQ entries).
     """
     noise_mask = df['cluster_label'].str.endswith('_noise')
     noise_df = df[noise_mask]
@@ -164,7 +167,7 @@ def recover_noise(df):
     if len(noise_df) == 0 or len(valid_df) == 0:
         return df
 
-    print(f"\nRecovering {len(noise_df)} noise facts into nearest clusters...")
+    print(f"\nAttempting noise recovery for {len(noise_df)} facts (threshold={NOISE_RECOVERY_THRESHOLD})...")
 
     # Compute centroid for each non-noise cluster
     cluster_labels = valid_df['cluster_label'].unique()
@@ -176,15 +179,23 @@ def recover_noise(df):
     centroid_labels = list(centroids.keys())
     centroid_matrix = np.vstack([centroids[l] for l in centroid_labels])
 
-    # For each noise fact, find nearest cluster
+    # For each noise fact, find nearest cluster — only reassign if similar enough
     noise_vectors = np.vstack(noise_df['vector'].values)
     similarities = cosine_similarity(noise_vectors, centroid_matrix)
 
+    recovered = 0
+    kept_noise = 0
     for i, noise_idx in enumerate(noise_df.index):
         best_cluster_idx = similarities[i].argmax()
-        df.at[noise_idx, 'cluster_label'] = centroid_labels[best_cluster_idx]
+        best_similarity = similarities[i][best_cluster_idx]
 
-    print(f"  Reassigned {len(noise_df)} noise facts to {len(set(df.loc[noise_df.index, 'cluster_label']))} clusters.")
+        if best_similarity >= NOISE_RECOVERY_THRESHOLD:
+            df.at[noise_idx, 'cluster_label'] = centroid_labels[best_cluster_idx]
+            recovered += 1
+        else:
+            kept_noise += 1
+
+    print(f"  Recovered: {recovered} | Still noise: {kept_noise}")
     return df
 
 def print_statistics(df):
