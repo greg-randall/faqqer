@@ -15,14 +15,14 @@ The pipeline pulls each page apart into self-contained statements. Context that 
 > **Page A — Academic Calendar**
 > "The Fall 2025 orientation for new employees is scheduled for August 11-15. This is a mandatory event for all full-time staff."
 
-&rarr; *"The Fall 2025 orientation for new employees is August 11-15."*
-&rarr; *"The Fall 2025 new employee orientation is mandatory for all full-time staff."*
+* *"The Fall 2025 orientation for new employees is August 11-15."*
+* *"The Fall 2025 new employee orientation is mandatory for all full-time staff."*
 
 > **Page B — Employee Onboarding**
 > "New hires must attend a five-day orientation. For the 2025 academic year, this session begins on August 11 and concludes on August 15."
 
-&rarr; *"New hires at the organization must attend a five-day orientation session."*
-&rarr; *"The 2025 new hire orientation begins on August 11 and concludes on August 15."*
+* *"New hires at the organization must attend a five-day orientation session."*
+* *"The 2025 new hire orientation begins on August 11 and concludes on August 15."*
 
 ### Cluster: group by topic, merge duplicates
 
