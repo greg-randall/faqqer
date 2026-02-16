@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import openai
 from openai import OpenAI
 
 # Initialize client — fail fast if key is missing
@@ -7,6 +9,21 @@ api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
     raise EnvironmentError("OPENAI_API_KEY environment variable is not set.")
 client = OpenAI(api_key=api_key)
+
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # seconds, doubles each retry
+
+def _retry_api_call(fn):
+    """Retry an API call with exponential backoff on transient errors."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            return fn()
+        except (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError) as e:
+            if attempt == MAX_RETRIES - 1:
+                raise
+            delay = RETRY_DELAY * (2 ** attempt)
+            print(f"  Retry {attempt+1}/{MAX_RETRIES} after {type(e).__name__}, waiting {delay}s...")
+            time.sleep(delay)
 
 def openai_llm_request(system_prompt, user_prompt, model="gpt-4o-mini", tools=None, tool_choice=None, max_tokens=4000, temperature=0.7):
     """
@@ -31,14 +48,18 @@ def openai_llm_request(system_prompt, user_prompt, model="gpt-4o-mini", tools=No
     ]
 
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
+        def _call():
+            return client.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout=120
+            )
+
+        response = _retry_api_call(_call)
 
         message = response.choices[0].message
 
@@ -78,7 +99,10 @@ def get_embeddings(texts, model="text-embedding-3-large"):
         batch = [text.replace("\n", " ") for text in batch]
 
         try:
-            response = client.embeddings.create(input=batch, model=model)
+            def _call(b=batch):
+                return client.embeddings.create(input=b, model=model, timeout=120)
+
+            response = _retry_api_call(_call)
             batch_embeddings = [item.embedding for item in response.data]
             all_embeddings.extend(batch_embeddings)
         except Exception as e:

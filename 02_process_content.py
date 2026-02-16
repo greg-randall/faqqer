@@ -42,12 +42,12 @@ tool_choice = {"type": "function", "function": {"name": "extract_atomic_facts"}}
 # ---------------------------------------------------------
 # System Prompt (Version 2 - Context Injection)
 # ---------------------------------------------------------
-SYSTEM_PROMPT = """You are an expert Information Architect optimizing content for an Organizational Answer Engine. 
+SYSTEM_PROMPT = """You are an expert Information Architect optimizing content for an Organizational Answer Engine.
 
 Your goal is to extract 'Atomic Facts' from the provided content.
 
 Rules for Atomic Facts:
-1. Standalone & Specific: Each fact must be fully intelligible on its own WITHOUT context. 
+1. Standalone & Specific: Each fact must be fully intelligible on its own WITHOUT context.
    - BAD: "The application fee is $50." (Which application?)
    - GOOD: "The Enterprise Plan subscription fee is $50/month."
    - BAD: "It is due by March 1st."
@@ -60,7 +60,35 @@ Rules for Atomic Facts:
 4. Canonical: If the text lists a specific contact (phone, email), extract it explicitly.
 
 5. Granularity: Split complex sentences into multiple simple facts.
-"""
+
+6. Preserve Precision: Keep all numbers, dates, proper nouns, URLs, emails, and phone numbers exactly as written. Never paraphrase numerical data.
+
+7. Be Exhaustive: Extract every distinct fact. Do not summarize or skip. For lists and tables, extract each row/item as a separate fact."""
+
+
+def _strip_metadata_header(content):
+    """Strip the metadata header (title, Source URL, ID) added by step 01.
+
+    The format is always:
+        # Title
+        **Source URL:** ...
+        **ID:** ...
+
+        <actual content>
+
+    We find the first blank line after these headers and return everything after it.
+    """
+    lines = content.split('\n')
+    for i, line in enumerate(lines):
+        # Look for first blank line (the separator after metadata)
+        if i > 0 and line.strip() == '':
+            # Check that we've passed at least the title line
+            remaining = '\n'.join(lines[i+1:]).strip()
+            if remaining:
+                return remaining
+    # If no blank line found or no content after it, return original
+    return content
+
 
 def process_files(limit=None):
     # Ensure output directory exists
@@ -70,7 +98,7 @@ def process_files(limit=None):
 
     # Get list of markdown files
     files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".md")]
-    
+
     # Sort files to ensure deterministic order (useful for debugging)
     files.sort()
 
@@ -78,7 +106,7 @@ def process_files(limit=None):
     if limit is not None and limit > 0:
         files = files[:limit]
         print(f"Debug Mode: Processing only the first {limit} files.")
-    
+
     total_files = len(files)
     print(f"Queued {total_files} files to process.")
 
@@ -98,28 +126,42 @@ def process_files(limit=None):
         with open(input_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Send to OpenAI with INCREASED max_tokens
+        # Strip metadata header before sending to LLM
+        clean_content = _strip_metadata_header(content)
+
+        # Send to OpenAI
         response_json_str = openai_helper.openai_llm_request(
             system_prompt=SYSTEM_PROMPT,
-            user_prompt=content,
+            user_prompt=clean_content,
             model="gpt-4o-mini",
             tools=tools,
             tool_choice=tool_choice,
-            max_tokens=4000 # <--- Updated to prevent truncation
+            max_tokens=16000,
+            temperature=0.1
         )
 
         if response_json_str:
             try:
                 # The helper returns the arguments as a JSON string
                 data = json.loads(response_json_str)
-                
+
+                # Filter empty-string facts
+                if 'facts' in data:
+                    original_count = len(data['facts'])
+                    data['facts'] = [f for f in data['facts'] if f and f.strip()]
+                    filtered_count = original_count - len(data['facts'])
+                    if filtered_count > 0:
+                        print(f"  Filtered {filtered_count} empty facts.")
+                    if len(data['facts']) == 0:
+                        print(f"  Warning: Zero facts extracted for {filename}")
+
                 # Add metadata about the source file
                 data['source_file'] = filename
-                
+
                 # Save the result
                 with open(output_path, 'w', encoding='utf-8') as f:
                     json.dump(data, f, indent=2)
-                
+
             except json.JSONDecodeError:
                 print(f"Error: Failed to parse JSON response for {filename}")
                 # Save the raw error output for debugging
@@ -133,11 +175,11 @@ def process_files(limit=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract atomic facts from markdown files.")
     parser.add_argument(
-        "-l", "--limit", 
-        type=int, 
+        "-l", "--limit",
+        type=int,
         help="Limit the number of files to process (useful for debugging)."
     )
-    
+
     args = parser.parse_args()
-    
+
     process_files(limit=args.limit)
