@@ -1,5 +1,6 @@
 import os
 import json
+from collections import deque
 import pandas as pd
 import numpy as np
 from sklearn.cluster import HDBSCAN, KMeans
@@ -61,26 +62,25 @@ def deduplicate_facts(df):
     sim_matrix = cosine_similarity(matrix)
     
     keep_mask = np.ones(len(df), dtype=bool)
-    sources = df['source'].tolist()
-    
+    source_sets = [set(s.split("; ")) for s in df['source'].tolist()]
+
     np.fill_diagonal(sim_matrix, 0)
-    
+
     duplicates_count = 0
-    
+
     for i in range(len(df)):
         if not keep_mask[i]:
             continue
-            
+
         similar_indices = np.where(sim_matrix[i, i+1:] > SIMILARITY_THRESHOLD)[0] + (i + 1)
-        
+
         for j in similar_indices:
             if keep_mask[j]:
                 keep_mask[j] = False
                 duplicates_count += 1
-                if sources[j] not in sources[i]:
-                    sources[i] += f"; {sources[j]}"
-    
-    df['source'] = sources
+                source_sets[i] |= source_sets[j]
+
+    df['source'] = ["; ".join(sorted(s)) for s in source_sets]
     clean_df = df[keep_mask].copy()
     
     print(f"Removed {duplicates_count} duplicates. Reduced from {len(df)} to {len(clean_df)} facts.")
@@ -96,11 +96,11 @@ def recursive_cluster(df):
     # We use a 'label_trace' column to keep track of the hierarchy (e.g. "0_5_2")
     df['cluster_label'] = "0" 
     
-    # The Queue: A list of label strings that need checking
-    cluster_queue = ["0"]
-    
+    # The Queue: deque for O(1) popleft
+    cluster_queue = deque(["0"])
+
     while cluster_queue:
-        current_label = cluster_queue.pop(0)
+        current_label = cluster_queue.popleft()
         
         # Get the subset of data for this label
         subset_mask = df['cluster_label'] == current_label
