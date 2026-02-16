@@ -6,12 +6,25 @@ import os
 INPUT_JSON = "data/faq_categorized.json"
 OUTPUT_HTML = "data/faq_final.html"
 
-# Updated template – doubled curly braces around the JSON part
-BLOCK_TEMPLATE = """<!-- wp:details -->
-<details class="wp-block-details"><summary>{question}</summary>
-<!-- wp:paragraph {{"placeholder":"Type / to add a hidden block"}} -->
-<p>{answer}</p>
-<!-- /wp:paragraph -->
+PARAGRAPH_TEMPLATE = """<!-- wp:paragraph {{"placeholder":"Type / to add a hidden block"}} -->
+<p>{text}</p>
+<!-- /wp:paragraph -->"""
+
+
+def _build_faq_block(question, answer):
+    """Build a wp:details block with one wp:paragraph per paragraph in the answer."""
+    escaped_question = html.escape(question)
+
+    # Split on newlines, escape each paragraph, drop empties
+    paragraphs = [html.escape(p.strip()) for p in answer.split('\n') if p.strip()]
+    if not paragraphs:
+        paragraphs = [html.escape(answer)]
+
+    inner = "\n".join(PARAGRAPH_TEMPLATE.format(text=p) for p in paragraphs)
+
+    return f"""<!-- wp:details -->
+<details class="wp-block-details"><summary>{escaped_question}</summary>
+{inner}
 </details>
 <!-- /wp:details -->
 """
@@ -76,16 +89,7 @@ def main():
             question = q_raw[0] if isinstance(q_raw, list) else q_raw
             answer = item.get('answer', '')
 
-            # Escape HTML, then convert newlines to <br> for multi-line answers
-            escaped_answer = html.escape(answer)
-            escaped_answer = escaped_answer.replace('\n', '<br>')
-
-            block = BLOCK_TEMPLATE.format(
-                question=html.escape(question),
-                answer=escaped_answer
-            )
-
-            wp_html.append(block)
+            wp_html.append(_build_faq_block(question, answer))
 
         # Spacer between categories (skip after the last one)
         if category != last_category:
