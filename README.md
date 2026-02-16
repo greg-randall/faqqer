@@ -1,39 +1,39 @@
-# FAQ Generation Through Content Atomization 
+# Faqqer: WordPress to structured FAQ pipeline
 
-This project takes a WordPress XML export and transforms it into a clean database of "Atomic Facts" to build a structured, high-quality, and categorized FAQ system.
+Faqqer is a data pipeline that converts WordPress XML exports into structured FAQ databases. It breaks down website pages into standalone "Atomic Facts," clusters them by topic, and generates Q&A pairs for both search engines and human readers.
 
 ## Quick Start
 
-1.  **Install:** `pip install openai pandas scikit-learn numpy pytest`
+1.  **Install:** `pip install openai pandas scikit-learn numpy pytest markdownify pyyaml`
 2.  **Configure:** Set `export OPENAI_API_KEY="sk-..."`
 3.  **Run:** `python run_pipeline.py <your_wordpress_export.xml>`
-4.  **Review:** Follow the on-screen instructions to review FAQs in your browser.
+4.  **Review:** Open the PHP tool to approve and edit the generated FAQs.
 
-## Pipeline Overview
+## Pipeline steps
 
-The project follows a streamlined 8-step pipeline from raw XML to a categorized, approved FAQ.
+The project uses an 8-step process to go from raw XML to a categorized FAQ.
 
 ### 1. The Scripts
 
-* `01_extract_content.py`: Parses WordPress XML, removes HTML, and saves clean Markdown files with source metadata.
-* `02_process_content.py`: Uses **GPT-4o-mini** to extract "Atomic Facts" (context-aware, independent statements) into JSON.
-* `03_generate_embeddings.py`: Generates vector embeddings for every fact using **OpenAI** (`text-embedding-3-large`).
-* `04_cluster_facts.py`: Employs HDBSCAN and Recursive K-Means to group facts into granular topics.
-* `05_generate_faq.py`: Synthesizes a Question and Answer pair for each cluster using an LLM.
-* `06_enrich_faq.py`: **Consolidated enrichment step** that performs dynamic categorization, extracts live source URLs, and runs an LLM audit/utility scoring.
-* `07_faq_reviewer.php`: A PHP web interface for human-in-the-loop review, editing, and approval of FAQ entries.
-* `08_generate_wp_html.py`: Converts approved entries into WordPress-ready Gutenberg HTML blocks (details/summary).
+* `01_extract_content.py`: Parses WordPress XML into Markdown files with source metadata.
+* `02_process_content.py`: Uses GPT-4o-mini to extract standalone facts from the Markdown.
+* `03_generate_embeddings.py`: Generates vectors for each fact using `text-embedding-3-small`.
+* `04_cluster_facts.py`: Uses HDBSCAN and Recursive K-Means to group facts into topics and deduplicate similar information.
+* `05_generate_faq.py`: Drafts a question and answer for each cluster.
+* `06_enrich_faq.py`: Categorizes entries, maps them to original URLs, and uses GPT-4o to audit for hallucinations.
+* `07_faq_reviewer.php`: PHP interface for human review and editing.
+* `08_generate_wp_html.py`: Converts approved entries into WordPress Gutenberg blocks.
 
 ### 2. Helper Modules
 
-* `openai_helper.py`: Centralized module for all OpenAI API interactions (Chat and Embeddings) with improved error handling and batching.
+* `openai_helper.py`: Manages OpenAI API calls, including error handling and batching.
 
 ---
 
 ## Data Formats
 
 ### Phase 1: Clean Markdown (`/content/`)
-Each file represents a website page with metadata headers (`Source URL`, `ID`).
+Markdown files with `Source URL` and `ID` headers.
 
 ```markdown
 # Academic Calendar
@@ -45,7 +45,7 @@ Each file represents a website page with metadata headers (`Source URL`, `ID`).
 ```
 
 ### Phase 2: Atomic Facts JSON (`/content_processed/`)
-LLM-extracted facts with resolved context (e.g., pronouns replaced with entities).
+Facts extracted by the LLM with context injected (e.g., pronouns replaced with names).
 
 ```json
 {
@@ -59,98 +59,51 @@ LLM-extracted facts with resolved context (e.g., pronouns replaced with entities
 ```
 
 ### Phase 3: Embedded Facts JSON (`/content_embedded/`)
-Same as Phase 2, but including high-dimensional vector arrays for clustering.
-
-```json
-{
-  "page_topic": "Academic Calendar",
-  "facts_with_embeddings": [
-    {
-      "text": "The Fall 2025 Orientation...",
-      "vector": [0.0123, -0.0456, 0.0098, ... ]
-    }
-  ]
-}
-```
+The same data as Phase 2, but with vector arrays.
 
 ### Phase 4: Cluster Report (`data/fact_clusters.csv`)
-A mapping of every fact to a hierarchical cluster label (e.g., `0_5_1`).
+A CSV mapping facts to hierarchical labels (e.g., `0_5_1`).
 
 | cluster_label | source | fact |
 | --- | --- | --- |
-| 5_1 | hr_calendar.md | The Fall 2025 Orientation... |
-| 5_1 | employees_events.md | Orientation is mandatory for new hires... |
-| 12_0 | admissions_fees.md | The application fee is $50... |
+| 0_5_1 | hr_calendar.md | The Fall 2025 Orientation... |
+| 0_5_1 | employees_events.md | Orientation is mandatory for new hires... |
+| 0_12_0 | admissions_fees.md | The application fee is $50... |
 
 ### Phase 5: FAQ JSON (`data/faq_raw.json`)
-Initial Q&A pairs generated from clusters, including linked source facts.
-
-```json
-[
-  {
-    "id": "5_1",
-    "questions": "When is orientation for new employees?",
-    "answer": "Orientation for new employees runs from Monday, August 11 through Friday, August 15.",
-    "source_facts": [
-      {
-        "fact": "The Fall 2025 Orientation...",
-        "source": "academics_calendar.md"
-      }
-    ],
-    "verified": false
-  }
-]
-```
+Initial Q&A pairs with linked source facts.
 
 ### Phase 6: Enriched FAQ (`data/faq_categorized.json`)
-The production-ready JSON. Contains categories, live URLs, audit status (hallucination check), and utility scores (1-10).
-
-```json
-{
-  "id": "5_1",
-  "questions": "When is orientation for new employees?",
-  "answer": "Orientation runs from August 11-15.",
-  "category": "Human Resources",
-  "source_facts": [
-    {
-      "fact": "The Fall 2025 Orientation...",
-      "source": "academics_calendar.md",
-      "live_url": "https://example.edu/academics/calendar/"
-    }
-  ],
-  "audit_status": "PASS",
-  "utility_score": 9.2
-}
-```
+Adds categories, live URLs, audit results, and utility scores.
 
 ### Phase 7: Reviewed FAQ
-Updated version of the enriched JSON after manual intervention via the PHP reviewer tool.
-
-```json
-{
-  "id": "5_1",
-  "status": "approved",
-  "admin_notes": "Verified against HR handbook.",
-  "verified": true
-}
-```
+Updates the enriched JSON after manual edits in the PHP tool.
 
 ### Phase 8: WordPress HTML (`data/faq_final.html`)
-Final output containing only `approved` items, sorted by category and utility score.
+HTML output for `approved` items, sorted by category and score.
 
-```html
-<!-- wp:heading {"level":2} -->
-<h2 class="wp-block-heading">Human Resources</h2>
-<!-- /wp:heading -->
+---
 
-<!-- wp:details -->
-<details class="wp-block-details"><summary>When is orientation for new employees?</summary>
-<!-- wp:paragraph {"placeholder":"Type / to add a hidden block"} -->
-<p>Orientation runs from August 11-15.</p>
-<!-- /wp:paragraph -->
-</details>
-<!-- /wp:details -->
-```
+## Humanizer: Reviewer Guidelines
+
+The following guide is used during the human review phase (Step 7) to ensure the AI-generated text is accurate and reads naturally.
+
+### Identify and remove AI patterns
+
+1. **Undue Emphasis on Significance:** Remove phrases like "testament to," "pivotal moment," or "evolving landscape."
+2. **Superficial -ing Endings:** Avoid tacking on phrases like "highlighting the importance of..." or "ensuring that..."
+3. **Vague Attributions:** Replace "Industry reports suggest" or "Experts argue" with specific sources and dates.
+4. **Promotional Language:** Remove subjective adjectives like "groundbreaking," "stunning," or "nestled in the heart of."
+5. **Copula Avoidance:** Use "is" or "are" instead of "serves as," "stands as," or "functions as."
+6. **Rule of Three:** Avoid forcing ideas into groups of three (e.g., "fast, reliable, and secure").
+7. **Filler Phrases:** Replace "In order to" with "To" and "Due to the fact that" with "Because."
+
+### Writing for humans
+
+* **Rhythm:** Vary your sentence lengths.
+* **Specificity:** Use numbers and dates instead of vague adjectives like "significant."
+* **Point of View:** Ensure the writing sounds like it was written by someone who understands the subject.
+* **Read it Aloud:** if a sentence is hard to say, it will be hard to read.
 
 ---
 
@@ -159,34 +112,27 @@ Final output containing only `approved` items, sorted by category and utility sc
 **Execution:**
 
 ```bash
-# 1. Extract content from WP Export
+# Run the full pipeline
+python run_pipeline.py wordpress-export.xml
+
+# Or run individual steps
 python 01_extract_content.py wordpress-export.xml
-
-# 2. Extract facts
 python 02_process_content.py
-
-# 3. Generate Embeddings
 python 03_generate_embeddings.py
-
-# 4. Analyze & Cluster
 python 04_cluster_facts.py
-
-# 5. Generate FAQ
 python 05_generate_faq.py
-
-# 6. Enrich (Categorize, URLs, Audit/Score)
 python 06_enrich_faq.py
 
-# 7. Review (Human)
+# Review
 php -S localhost:8000
 # Open: http://localhost:8000/07_faq_reviewer.php
 
-# 8. Generate HTML
+# Generate HTML
 python 08_generate_wp_html.py
 ```
 
 **Testing:**
-The project includes a comprehensive test suite covering all pipeline steps and data schemas.
+Run the test suite with:
 ```bash
 pytest
 ```
