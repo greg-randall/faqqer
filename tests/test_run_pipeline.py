@@ -17,11 +17,14 @@ class TestRunPipeline:
         with open(xml_file, 'w') as f:
             f.write("<rss></rss>")
 
+        run_dir = str(tmp_path / "runs" / "test_run")
+
         with patch.object(pipeline_module.subprocess, 'run',
                          return_value=MagicMock(returncode=0)) as mock_run, \
              patch.object(pipeline_module, 'os') as mock_os, \
-             patch('sys.argv', ['run_pipeline.py', xml_file]):
+             patch('sys.argv', ['run_pipeline.py', xml_file, '--run-dir', run_dir]):
             mock_os.path.exists.return_value = True
+            mock_os.environ = os.environ.copy()
             pipeline_module.main()
 
         # Should have called subprocess.run 6 times (steps 01-06)
@@ -33,14 +36,16 @@ class TestRunPipeline:
         with open(xml_file, 'w') as f:
             f.write("<rss></rss>")
 
+        run_dir = str(tmp_path / "runs" / "test_run")
         fail_result = MagicMock(returncode=1)
         success_result = MagicMock(returncode=0)
 
         with patch.object(pipeline_module.subprocess, 'run',
                          side_effect=[success_result, fail_result]) as mock_run, \
              patch.object(pipeline_module, 'os') as mock_os, \
-             patch('sys.argv', ['run_pipeline.py', xml_file]):
+             patch('sys.argv', ['run_pipeline.py', xml_file, '--run-dir', run_dir]):
             mock_os.path.exists.return_value = True
+            mock_os.environ = os.environ.copy()
             with pytest.raises(SystemExit) as exc_info:
                 pipeline_module.main()
 

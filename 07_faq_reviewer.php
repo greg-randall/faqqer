@@ -1,6 +1,7 @@
 <?php
 // CONFIGURATION
-$jsonFile = 'data/faq_categorized.json';
+$runDir = isset($_GET['run_dir']) ? rtrim($_GET['run_dir'], '/') : '.';
+$jsonFile = $runDir . '/data/faq_categorized.json';
 
 // --- BACKEND: HANDLE AJAX REQUESTS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
