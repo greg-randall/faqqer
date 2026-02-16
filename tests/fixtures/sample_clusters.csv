@@ -1,0 +1,12 @@
+cluster_label,source,fact
+0_0,about.md,The organization's mission is to help people learn.
+0_0,about.md; faq.md,The About Us page describes the organization's core purpose.
+0_0,contact.md,The contact email is info@example.com.
+0_0,contact.md,The office is open Monday through Friday.
+0_0,contact.md,The main phone number is 555-0100.
+0_1,programs.md,The program costs $500 per semester.
+0_1,programs.md,Applications are due by March 1st.
+0_1,programs.md,The program accepts 50 students per year.
+0_1,programs.md,The program requires a bachelor's degree.
+0_1,programs.md,The program lasts two years.
+0_noise,misc.md,The building was renovated in 2019.

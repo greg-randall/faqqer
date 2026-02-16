@@ -1,0 +1,47 @@
+[
+  {
+    "id": "0_0",
+    "questions": "What is the organization's mission?",
+    "answer": "The organization's mission is to help people learn. You can reach them at info@example.com or 555-0100, Monday through Friday.",
+    "source_facts": [
+      {"fact": "The organization's mission is to help people learn.", "source": "about.md", "live_url": "https://example.com/about/"},
+      {"fact": "The contact email is info@example.com.", "source": "contact.md", "live_url": "https://example.com/contact/"},
+      {"fact": "The main phone number is 555-0100.", "source": "contact.md", "live_url": "https://example.com/contact/"},
+      {"fact": "The office is open Monday through Friday.", "source": "contact.md", "live_url": "https://example.com/contact/"}
+    ],
+    "verified": true,
+    "category": "About & Contact",
+    "status": "approved",
+    "audit_status": "PASS",
+    "audit_reason": "All claims are supported by source facts.",
+    "score_universality": 8,
+    "score_criticality": 5,
+    "score_demand": 7,
+    "score_reason": "Mission and contact info are commonly searched.",
+    "utility_score": 6.7,
+    "admin_notes": ""
+  },
+  {
+    "id": "0_1",
+    "questions": "How much does the program cost and what are the requirements?",
+    "answer": "The program costs $500 per semester and requires a bachelor's degree. Applications are due by March 1st, and the program accepts 50 students per year for the two-year program.",
+    "source_facts": [
+      {"fact": "The program costs $500 per semester.", "source": "programs.md", "live_url": "https://example.com/programs/"},
+      {"fact": "Applications are due by March 1st.", "source": "programs.md", "live_url": "https://example.com/programs/"},
+      {"fact": "The program accepts 50 students per year.", "source": "programs.md", "live_url": "https://example.com/programs/"},
+      {"fact": "The program requires a bachelor's degree.", "source": "programs.md", "live_url": "https://example.com/programs/"},
+      {"fact": "The program lasts two years.", "source": "programs.md", "live_url": "https://example.com/programs/"}
+    ],
+    "verified": false,
+    "category": "Programs & Admissions",
+    "status": "rejected",
+    "audit_status": "PASS",
+    "audit_reason": "All claims match source facts.",
+    "score_universality": 9,
+    "score_criticality": 8,
+    "score_demand": 9,
+    "score_reason": "Cost and requirements are top queries.",
+    "utility_score": 8.7,
+    "admin_notes": "Needs human review of pricing accuracy"
+  }
+]

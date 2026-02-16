@@ -1,0 +1,18 @@
+{
+  "page_topic": "About Us",
+  "facts": [
+    "The organization's mission is to help people learn.",
+    "The About Us page describes the organization's core purpose."
+  ],
+  "facts_with_embeddings": [
+    {
+      "text": "The organization's mission is to help people learn.",
+      "vector": [0.1, 0.2, 0.3, 0.4, 0.5]
+    },
+    {
+      "text": "The About Us page describes the organization's core purpose.",
+      "vector": [0.5, 0.4, 0.3, 0.2, 0.1]
+    }
+  ],
+  "source_file": "about.md"
+}

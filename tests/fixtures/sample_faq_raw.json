@@ -1,0 +1,27 @@
+[
+  {
+    "id": "0_0",
+    "questions": "What is the organization's mission?",
+    "answer": "The organization's mission is to help people learn. You can reach them at info@example.com or 555-0100, Monday through Friday.",
+    "source_facts": [
+      {"fact": "The organization's mission is to help people learn.", "source": "about.md"},
+      {"fact": "The contact email is info@example.com.", "source": "contact.md"},
+      {"fact": "The main phone number is 555-0100.", "source": "contact.md"},
+      {"fact": "The office is open Monday through Friday.", "source": "contact.md"}
+    ],
+    "verified": false
+  },
+  {
+    "id": "0_1",
+    "questions": "How much does the program cost and what are the requirements?",
+    "answer": "The program costs $500 per semester and requires a bachelor's degree. Applications are due by March 1st, and the program accepts 50 students per year for the two-year program.",
+    "source_facts": [
+      {"fact": "The program costs $500 per semester.", "source": "programs.md"},
+      {"fact": "Applications are due by March 1st.", "source": "programs.md"},
+      {"fact": "The program accepts 50 students per year.", "source": "programs.md"},
+      {"fact": "The program requires a bachelor's degree.", "source": "programs.md"},
+      {"fact": "The program lasts two years.", "source": "programs.md"}
+    ],
+    "verified": false
+  }
+]
