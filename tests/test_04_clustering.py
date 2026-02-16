@@ -108,19 +108,23 @@ class TestClustering:
     def test_noise_labels(self, cluster_module, tmp_path):
         """Noise clusters should have labels ending in '_noise'."""
         np.random.seed(42)
-        # Need enough distinct facts to survive dedup and trigger HDBSCAN noise
+        # Need >MAX_CLUSTER_SIZE facts to trigger recursion, with outliers for noise
         facts = []
-        # 10 facts in a tight cluster (distinct enough to survive dedup)
+        # 10 tight facts in cluster A
         for i in range(10):
-            vec = np.random.randn(50).tolist()
-            # Shift cluster center
-            vec[0] += 10.0
-            facts.append({"text": f"Clustered fact {i} unique", "vector": vec})
-        # 3 outliers far from the cluster (too few for min_cluster_size=5)
+            vec = np.random.randn(50)
+            vec[0] += 20.0  # shift cluster A
+            facts.append({"text": f"Cluster A fact {i} unique content", "vector": vec.tolist()})
+        # 10 tight facts in cluster B
+        for i in range(10):
+            vec = np.random.randn(50)
+            vec[1] += 20.0  # shift cluster B
+            facts.append({"text": f"Cluster B fact {i} unique content", "vector": vec.tolist()})
+        # 3 outliers far from everything
         for i in range(3):
-            vec = np.zeros(50).tolist()
-            vec[i + 10] = 100.0  # each outlier in a different direction
-            facts.append({"text": f"Outlier fact {i} isolated", "vector": vec})
+            vec = np.zeros(50)
+            vec[i + 20] = 100.0
+            facts.append({"text": f"Outlier fact {i} completely isolated", "vector": vec.tolist()})
 
         self._make_embedded_file(tmp_path, "test.json", facts)
         output_file = str(tmp_path / "clusters.csv")
@@ -130,6 +134,8 @@ class TestClustering:
             cluster_module.main()
 
         df = pd.read_csv(output_file)
+        # Ensure cluster_label is string for .str accessor
+        df['cluster_label'] = df['cluster_label'].astype(str)
         noise_rows = df[df['cluster_label'].str.endswith('_noise')]
         non_noise = df[~df['cluster_label'].str.endswith('_noise')]
         # At least some data should be in non-noise clusters
