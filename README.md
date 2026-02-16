@@ -24,9 +24,9 @@ The pipeline pulls each page apart into self-contained statements. Context that 
 &rarr; *"New hires at the organization must attend a five-day orientation session."*
 &rarr; *"The 2025 new hire orientation begins on August 11 and concludes on August 15."*
 
-### Cluster: facts from different pages converge
+### Cluster: group by topic, merge duplicates
 
-Embeddings reveal that four facts from two unrelated pages describe the same topic. Duplicates are merged; the rest form a cluster.
+Facts with similar content are grouped together, even when they come from different pages. Near-duplicates are merged so the same information isn't repeated.
 
 | Cluster: **New Employee Orientation** | Source |
 | --- | --- |
