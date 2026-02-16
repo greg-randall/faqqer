@@ -1,4 +1,6 @@
 import os
+import json
+import xml.etree.ElementTree as ET
 import pytest
 from tests.conftest import import_step, fixture_path
 
@@ -169,3 +171,60 @@ class TestExtractContent:
         with open(os.path.join(output_dir, files[0]), 'r', encoding='utf-8') as f:
             content = f.read()
         assert "# Untitled" in content
+
+
+class TestRunDirCreation:
+    def _make_xml_with_link(self, tmp_path, link_url):
+        """Helper: create a minimal XML with a channel-level <link>."""
+        xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+  xmlns:wp="http://wordpress.org/export/1.2/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+  <link>{link_url}</link>
+</channel>
+</rss>"""
+        xml_path = str(tmp_path / "test.xml")
+        with open(xml_path, 'w') as f:
+            f.write(xml_content)
+        return xml_path
+
+    def test_extract_domain(self, extract_module, tmp_path):
+        """Should extract domain from channel <link> element."""
+        xml_path = self._make_xml_with_link(tmp_path, "https://example.com/blog")
+        tree = ET.parse(xml_path)
+        assert extract_module.extract_domain(tree) == "example.com"
+
+    def test_extract_domain_no_link(self, extract_module, tmp_path):
+        """Should return 'unknown' when no <link> in channel."""
+        xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel></channel></rss>"""
+        xml_path = str(tmp_path / "nolink.xml")
+        with open(xml_path, 'w') as f:
+            f.write(xml_content)
+        tree = ET.parse(xml_path)
+        assert extract_module.extract_domain(tree) == "unknown"
+
+    def test_create_run_dir(self, extract_module, tmp_path, monkeypatch):
+        """Should create runs/<domain>_<timestamp>/ directory."""
+        monkeypatch.chdir(tmp_path)
+        run_dir = extract_module.create_run_dir("example.com")
+        assert os.path.isdir(run_dir)
+        assert run_dir.startswith("runs/example.com_")
+
+    def test_write_run_info(self, extract_module, tmp_path):
+        """Should write .run_info.json with domain, timestamp, and xml_file."""
+        run_dir = str(tmp_path / "test_run")
+        os.makedirs(run_dir)
+        extract_module.write_run_info(run_dir, "example.com", "test.xml")
+
+        info_path = os.path.join(run_dir, ".run_info.json")
+        assert os.path.exists(info_path)
+
+        with open(info_path) as f:
+            info = json.load(f)
+
+        assert info["domain"] == "example.com"
+        assert "timestamp" in info
+        assert "xml_file" in info
