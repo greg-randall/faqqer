@@ -4,10 +4,11 @@ import os
 import random
 import argparse
 import openai_helper
+import config
 
 # Configuration
-INPUT_CSV = "data/fact_clusters.csv"
-OUTPUT_JSON = "data/faq_raw.json"
+INPUT_CSV = os.path.join(config.get_run_dir(), "data", "fact_clusters.csv")
+OUTPUT_JSON = os.path.join(config.get_run_dir(), "data", "faq_raw.json")
 
 # ---------------------------------------------------------
 # Define the Tool (JSON Schema)
@@ -68,7 +69,7 @@ def generate_faq(test_limit=None):
     # Resume: load existing output if present
     output_filename = OUTPUT_JSON
     if test_limit:
-        output_filename = "data/faq_TEST.json"
+        output_filename = os.path.join(config.get_run_dir(), "data", "faq_TEST.json")
 
     knowledge_base = []
     existing_ids = set()

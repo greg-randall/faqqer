@@ -1,10 +1,11 @@
 import os
 import json
 import openai_helper
+import config
 
 # Configuration
-INPUT_DIR = "content_processed"
-OUTPUT_DIR = "content_embedded"
+INPUT_DIR = os.path.join(config.get_run_dir(), "content_processed")
+OUTPUT_DIR = os.path.join(config.get_run_dir(), "content_embedded")
 
 def process_embeddings():
     if not os.path.exists(OUTPUT_DIR):

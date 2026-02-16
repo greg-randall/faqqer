@@ -7,9 +7,9 @@ import openai_helper
 import config
 
 # CONFIGURATION
-INPUT_FILE = "data/faq_raw.json"
-OUTPUT_FILE = "data/faq_categorized.json"
-CONTENT_DIR = "content"
+INPUT_FILE = os.path.join(config.get_run_dir(), "data", "faq_raw.json")
+OUTPUT_FILE = os.path.join(config.get_run_dir(), "data", "faq_categorized.json")
+CONTENT_DIR = os.path.join(config.get_run_dir(), "content")
 
 # =========================================================
 # PHASE A: CATEGORIZE (discover taxonomy + assign)

@@ -8,8 +8,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import config
 
 # Configuration
-INPUT_DIR = "content_embedded"
-OUTPUT_FILE = "data/fact_clusters.csv"
+INPUT_DIR = os.path.join(config.get_run_dir(), "content_embedded")
+OUTPUT_FILE = os.path.join(config.get_run_dir(), "data", "fact_clusters.csv")
 
 # From config
 SIMILARITY_THRESHOLD = config.DEDUP_SIMILARITY_THRESHOLD

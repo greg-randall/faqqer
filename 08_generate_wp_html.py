@@ -1,10 +1,11 @@
 import json
 import html
 import os
+import config
 
 # CONFIGURATION
-INPUT_JSON = "data/faq_categorized.json"
-OUTPUT_HTML = "data/faq_final.html"
+INPUT_JSON = os.path.join(config.get_run_dir(), "data", "faq_categorized.json")
+OUTPUT_HTML = os.path.join(config.get_run_dir(), "data", "faq_final.html")
 
 PARAGRAPH_TEMPLATE = """<!-- wp:paragraph {{"placeholder":"Type / to add a hidden block"}} -->
 <p>{text}</p>

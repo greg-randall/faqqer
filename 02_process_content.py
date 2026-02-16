@@ -2,10 +2,11 @@ import os
 import json
 import argparse
 import openai_helper
+import config
 
 # Configuration
-INPUT_DIR = "content"
-OUTPUT_DIR = "content_processed"
+INPUT_DIR = os.path.join(config.get_run_dir(), "content")
+OUTPUT_DIR = os.path.join(config.get_run_dir(), "content_processed")
 
 # ---------------------------------------------------------
 # Define the Tool (JSON Schema)
