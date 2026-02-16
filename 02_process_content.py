@@ -133,11 +133,9 @@ def process_files(limit=None):
         response_json_str = openai_helper.openai_llm_request(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=clean_content,
-            model="gpt-4o-mini",
             tools=tools,
             tool_choice=tool_choice,
-            max_tokens=16000,
-            temperature=0.1
+            max_tokens=16000
         )
 
         if response_json_str:

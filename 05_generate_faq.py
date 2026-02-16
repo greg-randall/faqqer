@@ -122,8 +122,7 @@ Writing style:
             user_prompt=user_prompt,
             tools=tools,
             tool_choice=tool_choice,
-            max_tokens=2000,
-            temperature=0.2
+            max_tokens=2000
         )
 
         if response:

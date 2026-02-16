@@ -5,17 +5,16 @@ import pandas as pd
 import numpy as np
 from sklearn.cluster import HDBSCAN, KMeans
 from sklearn.metrics.pairwise import cosine_similarity
+import config
 
 # Configuration
 INPUT_DIR = "content_embedded"
 OUTPUT_FILE = "data/fact_clusters.csv"
 
-# Semantic Deduplication
-SIMILARITY_THRESHOLD = 0.95
-
-# Clustering Constraints
-MIN_CLUSTER_SIZE = 5    # If a group is smaller than this, it's "Noise" (-1)
-MAX_CLUSTER_SIZE = 15   # If a group is larger than this, we MUST split it
+# From config
+SIMILARITY_THRESHOLD = config.DEDUP_SIMILARITY_THRESHOLD
+MIN_CLUSTER_SIZE = config.MIN_CLUSTER_SIZE
+MAX_CLUSTER_SIZE = config.MAX_CLUSTER_SIZE
 
 def load_embedded_facts():
     all_rows = []
@@ -153,7 +152,7 @@ def recursive_cluster(df):
 
     return df
 
-NOISE_RECOVERY_THRESHOLD = 0.6  # Only recover noise facts with similarity above this
+NOISE_RECOVERY_THRESHOLD = config.NOISE_RECOVERY_THRESHOLD
 
 def recover_noise(df):
     """

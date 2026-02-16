@@ -4,6 +4,7 @@ import re
 import tempfile
 import argparse
 import openai_helper
+import config
 
 # CONFIGURATION
 INPUT_FILE = "data/faq_raw.json"
@@ -328,11 +329,11 @@ Verify compliance."""
             response_audit = openai_helper.openai_llm_request(
                 system_prompt=audit_system_prompt,
                 user_prompt=audit_user_prompt,
-                model="gpt-4o",
+                model=config.SMART_MODEL,
                 tools=audit_tools,
                 tool_choice=audit_tool_choice,
                 max_tokens=300,
-                temperature=0.0
+                temperature=0.0  # Always deterministic for audit
             )
 
             if response_audit:
@@ -378,8 +379,7 @@ Evaluate the utility."""
                 user_prompt=eval_user_prompt,
                 tools=eval_tools,
                 tool_choice=eval_tool_choice,
-                max_tokens=300,
-                temperature=0.3
+                max_tokens=300
             )
 
             if response_eval:

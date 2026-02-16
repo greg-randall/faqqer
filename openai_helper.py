@@ -3,6 +3,7 @@ import json
 import time
 import openai
 from openai import OpenAI
+import config
 
 # Initialize client — fail fast if key is missing
 api_key = os.environ.get("OPENAI_API_KEY")
@@ -10,38 +11,41 @@ if not api_key:
     raise EnvironmentError("OPENAI_API_KEY environment variable is not set.")
 client = OpenAI(api_key=api_key)
 
-MAX_RETRIES = 3
-RETRY_DELAY = 2  # seconds, doubles each retry
 
 def _retry_api_call(fn):
     """Retry an API call with exponential backoff on transient errors."""
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(config.MAX_RETRIES):
         try:
             return fn()
         except (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError) as e:
-            if attempt == MAX_RETRIES - 1:
+            if attempt == config.MAX_RETRIES - 1:
                 raise
-            delay = RETRY_DELAY * (2 ** attempt)
-            print(f"  Retry {attempt+1}/{MAX_RETRIES} after {type(e).__name__}, waiting {delay}s...")
+            delay = config.RETRY_DELAY * (2 ** attempt)
+            print(f"  Retry {attempt+1}/{config.MAX_RETRIES} after {type(e).__name__}, waiting {delay}s...")
             time.sleep(delay)
 
-def openai_llm_request(system_prompt, user_prompt, model="gpt-4o-mini", tools=None, tool_choice=None, max_tokens=4000, temperature=0.7):
+def openai_llm_request(system_prompt, user_prompt, model=None, tools=None, tool_choice=None, max_tokens=4000, temperature=None):
     """
     Makes a request to OpenAI Chat Completion API.
 
     Args:
         system_prompt (str): The system instructions.
         user_prompt (str): The user input.
-        model (str): Model name (e.g., "gpt-4o-mini", "gpt-4o").
+        model (str): Model name. Defaults to config.HELPER_MODEL.
         tools (list): List of tool definitions (JSON schema).
         tool_choice (dict or str): Tool choice configuration.
         max_tokens (int): Maximum tokens for the response.
-        temperature (float): Sampling temperature.
+        temperature (float): Sampling temperature. Defaults to config.TEMPERATURE.
 
     Returns:
         str: The content of the response, or the arguments JSON string if a tool was called.
         None: If an error occurs.
     """
+    if model is None:
+        model = config.HELPER_MODEL
+    if temperature is None:
+        temperature = config.TEMPERATURE
+
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}
@@ -56,7 +60,7 @@ def openai_llm_request(system_prompt, user_prompt, model="gpt-4o-mini", tools=No
                 tool_choice=tool_choice,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                timeout=120
+                timeout=config.TIMEOUT
             )
 
         response = _retry_api_call(_call)
@@ -74,22 +78,25 @@ def openai_llm_request(system_prompt, user_prompt, model="gpt-4o-mini", tools=No
         return None
 
 
-def get_embeddings(texts, model="text-embedding-3-large"):
+def get_embeddings(texts, model=None):
     """
     Generates embeddings for a list of texts using OpenAI API.
     Handles batching to ensure reliability.
 
     Args:
         texts (list of str): List of texts to embed.
-        model (str): Embedding model to use.
+        model (str): Embedding model to use. Defaults to config.EMBEDDING_MODEL.
 
     Returns:
         list of list of floats: A list of embedding vectors corresponding to the input texts.
     """
+    if model is None:
+        model = config.EMBEDDING_MODEL
+
     if not texts:
         return []
 
-    batch_size = 100
+    batch_size = config.EMBEDDING_BATCH_SIZE
     all_embeddings = []
 
     for i in range(0, len(texts), batch_size):
@@ -100,7 +107,7 @@ def get_embeddings(texts, model="text-embedding-3-large"):
 
         try:
             def _call(b=batch):
-                return client.embeddings.create(input=b, model=model, timeout=120)
+                return client.embeddings.create(input=b, model=model, timeout=config.TIMEOUT)
 
             response = _retry_api_call(_call)
             batch_embeddings = [item.embedding for item in response.data]
