@@ -193,7 +193,8 @@ def phase_url_enrichment(data):
                     urls_found.append(live_url)
 
             if urls_found:
-                fact['live_url'] = urls_found[0]
+                # Keep all URLs for multi-source facts as a list
+                fact['live_url'] = urls_found if len(urls_found) > 1 else urls_found[0]
                 stats["found"] += 1
             else:
                 fact['live_url'] = None
@@ -273,7 +274,7 @@ eval_tools = [
 eval_tool_choice = {"type": "function", "function": {"name": "evaluate_faq_utility"}}
 
 
-def phase_audit_and_score(data, limit=None):
+def phase_audit_and_score(data, limit=None, domain=None):
     """Phase C: LLM hallucination audit + utility scoring."""
     print("\n--- PHASE C: Audit & Score ---")
 
@@ -303,7 +304,7 @@ def phase_audit_and_score(data, limit=None):
                 facts.append(f.get('fact', ''))
         fact_text = "\n".join([f"- {fact}" for fact in facts])
 
-        # AUDIT
+        # AUDIT (using GPT-4o for stronger cross-check)
         if 'audit_status' not in entry:
             audit_system_prompt = """You are a strict QA Auditor for an automated knowledge base.
 Your job is to verify that the generated Answer is strictly supported by the provided Context Facts.
@@ -327,6 +328,7 @@ Verify compliance."""
             response_audit = openai_helper.openai_llm_request(
                 system_prompt=audit_system_prompt,
                 user_prompt=audit_user_prompt,
+                model="gpt-4o",
                 tools=audit_tools,
                 tool_choice=audit_tool_choice,
                 max_tokens=300,
@@ -348,9 +350,13 @@ Verify compliance."""
 
         # EVALUATE
         if 'utility_score' not in entry:
-            eval_system_prompt = """You are a Senior Content Strategist evaluating the utility of FAQ entries.
-Score the provided Question/Answer pair on three dimensions using a strict 1-10 scale.
+            domain_context = ""
+            if domain:
+                domain_context = f"\nContext: This FAQ is for a {domain}. Score accordingly — consider what matters most to {domain} stakeholders.\n"
 
+            eval_system_prompt = f"""You are a Senior Content Strategist evaluating the utility of FAQ entries.
+Score the provided Question/Answer pair on three dimensions using a strict 1-10 scale.
+{domain_context}
 --- RUBRIC 1: UNIVERSALITY (REACH) ---
 1-2: Extremely Niche. 3-4: Specific Segment. 5-6: Broad Segment. 7-8: Majority. 9-10: Universal.
 
@@ -403,6 +409,8 @@ Evaluate the utility."""
 def main():
     parser = argparse.ArgumentParser(description="Enrich FAQ: categorize, add URLs, audit & score.")
     parser.add_argument("-l", "--limit", type=int, help="Limit number of items to audit/score.")
+    parser.add_argument("--domain", type=str, default=None,
+                        help="Domain context for scoring (e.g., 'university', 'hospital'). Optional.")
     args = parser.parse_args()
 
     # Load input
@@ -422,7 +430,7 @@ def main():
     phase_url_enrichment(data)
 
     # Phase C: Audit + Score
-    phase_audit_and_score(data, limit=args.limit)
+    phase_audit_and_score(data, limit=args.limit, domain=args.domain)
 
     # Atomic write via tempfile + os.replace
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)

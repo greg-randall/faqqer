@@ -33,7 +33,7 @@ def main():
     # 2. Filter & Group Approved Items
     grouped_data = {}
     approved_count = 0
-    
+
     for item in data:
         if item.get('status') == 'approved':
             category = item.get('category', 'General')
@@ -51,7 +51,10 @@ def main():
     # 3. Build HTML
     wp_html = []
 
-    for category in sorted(grouped_data.keys()):
+    sorted_categories = sorted(grouped_data.keys())
+    last_category = sorted_categories[-1] if sorted_categories else None
+
+    for category in sorted_categories:
         # Category Heading
         cat_esc = html.escape(category)
         wp_html.append('<!-- wp:heading {"level":2} -->')
@@ -62,8 +65,8 @@ def main():
         # Sort items within this category by utility_score (descending)
         # Default to 0 if utility_score is missing
         items = sorted(
-            grouped_data[category], 
-            key=lambda x: x.get('utility_score', 0), 
+            grouped_data[category],
+            key=lambda x: x.get('utility_score', 0),
             reverse=True
         )
 
@@ -73,16 +76,21 @@ def main():
             question = q_raw[0] if isinstance(q_raw, list) else q_raw
             answer = item.get('answer', '')
 
+            # Escape HTML, then convert newlines to <br> for multi-line answers
+            escaped_answer = html.escape(answer)
+            escaped_answer = escaped_answer.replace('\n', '<br>')
+
             block = BLOCK_TEMPLATE.format(
                 question=html.escape(question),
-                answer=html.escape(answer)
+                answer=escaped_answer
             )
-            
+
             wp_html.append(block)
 
-        # Spacer between categories (except after the last one)
-        wp_html.append(SPACER_BLOCK)
-        wp_html.append('')
+        # Spacer between categories (skip after the last one)
+        if category != last_category:
+            wp_html.append(SPACER_BLOCK)
+            wp_html.append('')
 
     # Join everything with newlines
     final_html = '\n'.join(wp_html).strip()

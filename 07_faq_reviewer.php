@@ -5,7 +5,7 @@ $jsonFile = 'data/faq_categorized.json';
 // --- BACKEND: HANDLE AJAX REQUESTS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
-    
+
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? '';
 
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_entry') {
         $id = $input['entry']['id'];
         $updated = false;
-        
+
         foreach ($data as &$item) {
             if ($item['id'] === $id) {
                 // Update editable fields
@@ -28,19 +28,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $item['questions'] = $input['entry']['questions'];
                 $item['answer'] = $input['entry']['answer'];
                 $item['category'] = $input['entry']['category'];
-                $item['status'] = $input['entry']['status']; 
+                $item['status'] = $input['entry']['status'];
                 $item['admin_notes'] = $input['entry']['admin_notes'];
-                
+
                 // Sync legacy field for backward compatibility
-                $item['verified'] = ($input['entry']['status'] === 'approved'); 
-                
+                $item['verified'] = ($input['entry']['status'] === 'approved');
+
                 $updated = true;
                 break;
             }
         }
-        
+
         if ($updated) {
-            file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT));
+            file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT), LOCK_EX);
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'message' => 'ID not found']);
@@ -168,19 +168,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+    // --- XSS PROTECTION ---
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
     // --- STATE ---
     let allData = [];
     let currentFiltered = [];
     let currentIndex = 0;
     let categories = new Set();
-    const JSON_FILE = '<?php echo $jsonFile; ?>';
-    const SELF_URL = '<?php echo basename($_SERVER['PHP_SELF']); ?>';
+    const JSON_FILE = <?php echo json_encode($jsonFile); ?>;
+    const SELF_URL = <?php echo json_encode(basename($_SERVER['PHP_SELF'])); ?>;
 
     $(document).ready(function() {
         // Load JSON directly (with cache buster)
         $.getJSON(JSON_FILE + '?t=' + new Date().getTime(), function(data) {
             allData = data;
-            
+
             // Extract categories
             categories.clear();
             allData.forEach(item => {
@@ -198,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // UI Event Listeners
         $('#filterCategory, #filterStatus').on('change', applyFilters);
-        
+
         $('#btnNewCategory').click(function() {
             let newCat = prompt("Enter new category name:");
             if (newCat) {
@@ -213,8 +220,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     function populateCategoryDropdowns() {
         const sortedCats = Array.from(categories).sort();
-        const options = sortedCats.map(c => `<option value="${c}">${c}</option>`).join('');
-        
+        const options = sortedCats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
         $('#filterCategory').html('<option value="all">All Categories</option>' + options);
         $('#editCategory').html(options);
     }
@@ -225,12 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         currentFiltered = allData.filter(item => {
             const matchCat = (catFilter === 'all') || (item.category === catFilter);
-            
+
             let matchStat = (statFilter === 'all') || (item.status === statFilter);
             if (statFilter === 'audit_fail') {
                 matchStat = (item.audit_status === 'FAIL');
             }
-            
+
             return matchCat && matchStat;
         });
 
@@ -256,13 +263,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const html = `
                 <div class="p-3 item-list-row ${activeClass}" onclick="selectItem(${index})">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="fw-bold text-truncate" style="max-width: 60%">${item.category}</small>
+                        <small class="fw-bold text-truncate" style="max-width: 60%">${escapeHtml(item.category)}</small>
                         <div class="d-flex gap-2 align-items-center">
-                            ${item.utility_score ? `<span class="badge bg-light text-dark border">${item.utility_score}</span>` : ''}
+                            ${item.utility_score ? `<span class="badge bg-light text-dark border">${escapeHtml(String(item.utility_score))}</span>` : ''}
                             <span><i class="${iconClass}"></i></span>
                         </div>
                     </div>
-                    <div class="small text-dark text-truncate">${qText}</div>
+                    <div class="small text-dark text-truncate">${escapeHtml(qText)}</div>
                 </div>
             `;
             list.append(html);
@@ -271,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     function selectItem(index) {
         currentIndex = index;
-        renderSidebar(); 
+        renderSidebar();
         loadCurrentItem();
     }
 
@@ -283,7 +290,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $('#editorArea').removeClass('d-none');
 
         const item = currentFiltered[currentIndex];
-        
+
         // Fill Form
         $('#currentIdDisplay').text(item.id);
         $('#editCategory').val(item.category);
@@ -303,8 +310,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (item.audit_status) {
             const auditColor = item.audit_status === 'PASS' ? 'success' : 'danger';
             const auditIcon = item.audit_status === 'PASS' ? 'check' : 'exclamation-triangle';
-            auditHtml = `<span class="badge bg-${auditColor}" title="${item.audit_reason || ''}">
-                            <i class="fas fa-${auditIcon}"></i> AUDIT: ${item.audit_status}
+            auditHtml = `<span class="badge bg-${auditColor}" title="${escapeHtml(item.audit_reason || '')}">
+                            <i class="fas fa-${auditIcon}"></i> AUDIT: ${escapeHtml(item.audit_status)}
                          </span>`;
         }
         $('#auditBadgeArea').html(auditHtml);
@@ -318,18 +325,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="row align-items-center">
                             <div class="col-md-2 border-end">
                                 <div class="small text-muted text-uppercase fw-bold" style="font-size:0.7rem">Utility</div>
-                                <div class="h4 m-0 text-primary">${item.utility_score}<small class="text-muted" style="font-size:0.5em">/10</small></div>
+                                <div class="h4 m-0 text-primary">${escapeHtml(String(item.utility_score))}<small class="text-muted" style="font-size:0.5em">/10</small></div>
                             </div>
                             <div class="col-md-10 px-3">
                                 <div class="d-flex justify-content-between small text-muted mb-1">
-                                    <span>Reach: ${item.score_universality || '?'}</span>
-                                    <span>Impact: ${item.score_criticality || '?'}</span>
-                                    <span>Demand: ${item.score_demand || '?'}</span>
+                                    <span>Reach: ${escapeHtml(String(item.score_universality || '?'))}</span>
+                                    <span>Impact: ${escapeHtml(String(item.score_criticality || '?'))}</span>
+                                    <span>Demand: ${escapeHtml(String(item.score_demand || '?'))}</span>
                                 </div>
                                 <div class="progress" style="height: 6px;">
                                     <div class="progress-bar" role="progressbar" style="width: ${item.utility_score * 10}%"></div>
                                 </div>
-                                <div class="small text-muted mt-1 italic">"${item.score_reason || ''}"</div>
+                                <div class="small text-muted mt-1 italic">"${escapeHtml(item.score_reason || '')}"</div>
                             </div>
                         </div>
                     </div>
@@ -342,15 +349,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (item.source_facts && item.source_facts.length > 0) {
             item.source_facts.forEach(fact => {
                 let linkHtml = '';
-                
-                // CHECK: Does 'live_url' exist in the JSON?
-                if (fact.live_url) {
-                    linkHtml = `
-                        <a href="${fact.live_url}" target="_blank" class="text-decoration-none text-primary fw-bold">
-                            ${fact.source} <i class="fas fa-external-link-alt small ms-1"></i>
-                        </a>`;
+
+                // Handle live_url as string or array
+                let urls = fact.live_url;
+                if (urls && !Array.isArray(urls)) {
+                    urls = [urls];
+                }
+
+                if (urls && urls.length > 0) {
+                    linkHtml = urls.map(url =>
+                        `<a href="${escapeHtml(url)}" target="_blank" class="text-decoration-none text-primary fw-bold">
+                            ${escapeHtml(fact.source)} <i class="fas fa-external-link-alt small ms-1"></i>
+                        </a>`
+                    ).join(' ');
                 } else {
-                    linkHtml = `<span class="text-muted">${fact.source} (No URL)</span>`;
+                    linkHtml = `<span class="text-muted">${escapeHtml(fact.source)} (No URL)</span>`;
                 }
 
                 sourcesHtml += `
@@ -358,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="d-flex align-items-start">
                             <i class="fas fa-info-circle text-primary mt-1 me-2"></i>
                             <div>
-                                <div>${fact.fact}</div>
+                                <div>${escapeHtml(fact.fact)}</div>
                                 <small class="text-muted">
                                     <i class="fas fa-link"></i> ${linkHtml}
                                 </small>

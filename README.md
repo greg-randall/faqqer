@@ -78,9 +78,9 @@ A mapping of every fact to a hierarchical cluster label (e.g., `0_5_1`).
 
 | cluster_label | source | fact |
 | --- | --- | --- |
-| 5_1 | hr_calendar.json | The Fall 2025 Orientation... |
-| 5_1 | employees_events.json | Orientation is mandatory for new hires... |
-| 12_0 | admissions_fees.json | The application fee is $50... |
+| 5_1 | hr_calendar.md | The Fall 2025 Orientation... |
+| 5_1 | employees_events.md | Orientation is mandatory for new hires... |
+| 12_0 | admissions_fees.md | The application fee is $50... |
 
 ### Phase 5: FAQ JSON (`data/faq_raw.json`)
 Initial Q&A pairs generated from clusters, including linked source facts.
@@ -139,11 +139,17 @@ Updated version of the enriched JSON after manual intervention via the PHP revie
 Final output containing only `approved` items, sorted by category and utility score.
 
 ```html
+<!-- wp:heading {"level":2} -->
 <h2 class="wp-block-heading">Human Resources</h2>
-<details class="wp-block-details">
-  <summary>When is orientation for new employees?</summary>
-  <p>Orientation runs from August 11-15.</p>
+<!-- /wp:heading -->
+
+<!-- wp:details -->
+<details class="wp-block-details"><summary>When is orientation for new employees?</summary>
+<!-- wp:paragraph {"placeholder":"Type / to add a hidden block"} -->
+<p>Orientation runs from August 11-15.</p>
+<!-- /wp:paragraph -->
 </details>
+<!-- /wp:details -->
 ```
 
 ---
