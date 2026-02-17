@@ -1,7 +1,15 @@
 <?php
 // CONFIGURATION
 $runDir = isset($_GET['run_dir']) ? rtrim($_GET['run_dir'], '/') : '.';
+
+// Path traversal guard: resolve and verify the JSON file lives under the project root
+$projectRoot = realpath(__DIR__);
 $jsonFile = $runDir . '/data/faq_categorized.json';
+$realJson = realpath($jsonFile);
+if ($realJson && !str_starts_with($realJson, $projectRoot . DIRECTORY_SEPARATOR)) {
+    http_response_code(403);
+    die('Invalid run_dir: path escapes project root.');
+}
 
 // --- BACKEND: HANDLE AJAX REQUESTS ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
