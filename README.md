@@ -126,29 +126,6 @@ HTML output for `approved` items, sorted by category and score.
 
 ---
 
-## Humanizer: Reviewer Guidelines
-
-The following guide is used during the human review phase (Step 7) to ensure the AI-generated text is accurate and reads naturally.
-
-### Identify and remove AI patterns
-
-1. **Undue Emphasis on Significance:** Remove phrases like "testament to," "pivotal moment," or "evolving landscape."
-2. **Superficial -ing Endings:** Avoid tacking on phrases like "highlighting the importance of..." or "ensuring that..."
-3. **Vague Attributions:** Replace "Industry reports suggest" or "Experts argue" with specific sources and dates.
-4. **Promotional Language:** Remove subjective adjectives like "groundbreaking," "stunning," or "nestled in the heart of."
-5. **Copula Avoidance:** Use "is" or "are" instead of "serves as," "stands as," or "functions as."
-6. **Rule of Three:** Avoid forcing ideas into groups of three (e.g., "fast, reliable, and secure").
-7. **Filler Phrases:** Replace "In order to" with "To" and "Due to the fact that" with "Because."
-
-### Writing for humans
-
-* **Rhythm:** Vary your sentence lengths.
-* **Specificity:** Use numbers and dates instead of vague adjectives like "significant."
-* **Point of View:** Ensure the writing sounds like it was written by someone who understands the subject.
-* **Read it Aloud:** if a sentence is hard to say, it will be hard to read.
-
----
-
 ## Usage & Development
 
 **Execution:**
