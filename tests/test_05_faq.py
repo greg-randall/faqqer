@@ -106,3 +106,51 @@ class TestGenerateFaq:
 
         captured = capsys.readouterr()
         assert "Truncating" in captured.out or "truncating" in captured.out.lower()
+
+
+class TestFuzzyGet:
+    def test_exact_match(self, faq_module):
+        data = {"question": "What?", "synthesized_answer": "Yes."}
+        assert faq_module.fuzzy_get(data, "question") == "What?"
+        assert faq_module.fuzzy_get(data, "synthesized_answer") == "Yes."
+
+    def test_hyphenated_key(self, faq_module):
+        data = {"question": "What?", "synthesized-answer": "Yes."}
+        assert faq_module.fuzzy_get(data, "synthesized_answer") == "Yes."
+
+    def test_camel_case_key(self, faq_module):
+        data = {"Question": "What?", "SynthesizedAnswer": "Yes."}
+        assert faq_module.fuzzy_get(data, "question") == "What?"
+        assert faq_module.fuzzy_get(data, "synthesized_answer") == "Yes."
+
+    def test_upper_case_key(self, faq_module):
+        data = {"QUESTION": "What?", "SYNTHESIZED_ANSWER": "Yes."}
+        assert faq_module.fuzzy_get(data, "question") == "What?"
+        assert faq_module.fuzzy_get(data, "synthesized_answer") == "Yes."
+
+    def test_no_match_raises_key_error(self, faq_module):
+        data = {"foo": "bar"}
+        with pytest.raises(KeyError):
+            faq_module.fuzzy_get(data, "question")
+
+    def test_bad_key_in_full_pipeline(self, faq_module, tmp_path):
+        """LLM returns mangled keys — entry should still be parsed."""
+        input_csv = fixture_path("sample_clusters.csv")
+        output_json = str(tmp_path / "faq_raw.json")
+
+        mock_response = json.dumps({
+            "Question": "What is the mission?",
+            "Synthesized-Answer": "The mission is to help people learn."
+        })
+
+        with patch.object(faq_module, 'INPUT_CSV', input_csv), \
+             patch.object(faq_module, 'OUTPUT_JSON', output_json), \
+             patch.object(faq_module.openai_helper, 'openai_llm_request', return_value=mock_response):
+            faq_module.generate_faq()
+
+        with open(output_json) as f:
+            data = json.load(f)
+
+        assert len(data) > 0
+        assert data[0]["questions"] == "What is the mission?"
+        assert data[0]["answer"] == "The mission is to help people learn."

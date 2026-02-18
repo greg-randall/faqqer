@@ -1,10 +1,36 @@
 import pandas as pd
 import json
 import os
+import re
 import random
 import argparse
 import openai_helper
 import config
+
+
+def _normalize_key(key):
+    """Strip to lowercase alphanumeric only: 'Synthesized-Answer' -> 'synthesizedanswer'"""
+    return re.sub(r'[^a-z0-9]', '', key.lower())
+
+
+def fuzzy_get(data, key):
+    """Look up a key in a dict, tolerating LLM key-name drift.
+
+    1. Try exact match.
+    2. Normalize all keys (lowercase, strip non-alphanumeric) and match.
+    3. Raise KeyError with a helpful message if nothing matches.
+    """
+    # Exact match
+    if key in data:
+        return data[key]
+
+    # Normalized match
+    target = _normalize_key(key)
+    for k, v in data.items():
+        if _normalize_key(k) == target:
+            return v
+
+    raise KeyError(f"No match for '{key}' in {list(data.keys())}")
 
 # Configuration
 INPUT_CSV = os.path.join(config.get_run_dir(), "data", "fact_clusters.csv")
@@ -28,7 +54,7 @@ tools = [
                     },
                     "synthesized_answer": {
                         "type": "string",
-                        "description": "A thorough answer using information from the provided facts. Lead with a direct 1-2 sentence summary, then expand with supporting details. Use bullet points or numbered lists when presenting multiple items (requirements, steps, options, deadlines). Organize logically—group related details together. Light framing and connective phrases are fine, but every factual claim must come from the provided facts. Include URLs from facts when present."
+                        "description": "An informative answer using information from the provided facts. Lead with a direct 1-2 sentence answer, then add relevant details and context from the facts. Use bullet points only when listing 3+ parallel items (requirements, steps, deadlines)—otherwise write in prose. Every factual claim must come from the provided facts, but light connective phrasing is fine. Include URLs from facts when present."
                     },
                 },
                 "required": ["question", "synthesized_answer"]
@@ -115,13 +141,12 @@ def generate_faq(test_limit=None):
 FAITHFULNESS: Every factual claim in your answer must come from the provided facts. You may use connective phrases and light framing to make the answer read naturally, but do not introduce new factual claims from your general knowledge. If the facts say "The fee is $50" you write "The fee is $50." You do not add "typically paid by credit card" unless that's in the facts.
 
 Writing style:
-- Lead with a clear, direct answer to the question in 1-2 sentences
-- Then expand with relevant details, specifics, and context from the facts
-- Use bullet points or numbered lists when presenting multiple items (requirements, steps, options, dates)
+- Lead with a clear, direct answer in 1-2 sentences
+- Add relevant details and context from the facts—don't stop at a surface-level summary
+- Write in prose by default. Only use bullet points or numbered lists when there are 3 or more parallel items (e.g. a list of requirements, steps, or deadlines)—not for every answer
 - Preserve specific dates, credit hours, fees, and deadlines exactly as stated
 - Synthesize redundant facts—don't repeat the same point twice
-- If facts contain URLs, include them naturally in the answer
-- Aim for a complete answer that saves the reader from needing to search further""",
+- If facts contain URLs, include them naturally in the answer""",
             user_prompt=user_prompt,
             tools=tools,
             tool_choice=tool_choice,
@@ -134,14 +159,15 @@ Writing style:
 
                 entry = {
                     "id": str(label),
-                    "questions": data['question'],
-                    "answer": data['synthesized_answer'],
+                    "questions": fuzzy_get(data, 'question'),
+                    "answer": fuzzy_get(data, 'synthesized_answer'),
                     "source_facts": linked_facts,
                     "verified": False
                 }
                 knowledge_base.append(entry)
-            except json.JSONDecodeError:
-                print(f"Error parsing JSON.")
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Error parsing response for topic {label}: {e}")
+                print(f"  Raw response: {response[:500]}")
         else:
             print(f"No response.")
 
