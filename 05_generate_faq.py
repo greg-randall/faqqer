@@ -28,7 +28,7 @@ tools = [
                     },
                     "synthesized_answer": {
                         "type": "string",
-                        "description": "A concise answer using ONLY information from the provided facts. Do not add details, context, or caveats from outside knowledge—even if accurate. If a fact says 'X is required,' write that. Do not add 'typically' or 'usually' or explain why. Lead with the key information. 2-4 sentences max. Include URLs from facts when present."
+                        "description": "A thorough answer using information from the provided facts. Lead with a direct 1-2 sentence summary, then expand with supporting details. Use bullet points or numbered lists when presenting multiple items (requirements, steps, options, deadlines). Organize logically—group related details together. Light framing and connective phrases are fine, but every factual claim must come from the provided facts. Include URLs from facts when present."
                     },
                 },
                 "required": ["question", "synthesized_answer"]
@@ -110,20 +110,22 @@ def generate_faq(test_limit=None):
         user_prompt = "FACTS:\n" + "\n".join([f"- {f}" for f in prompt_facts_text])
 
         response = openai_helper.openai_llm_request(
-            system_prompt="""You are a web editor for the organization's website. Your job is to create FAQ entries that help prospective and current users find answers quickly.
+            system_prompt="""You are a web editor for the organization's website. Your job is to create FAQ entries that help prospective and current users find comprehensive answers quickly.
 
-CRITICAL: Your answers must contain ONLY information present in the provided facts. Do not add context, caveats, recommendations, or details from your general knowledge—even if you're confident they're true. If the facts say "The fee is $50" you write "The fee is $50." You do not add "typically paid by credit card" or "which is non-refundable" unless that's explicitly stated in the facts.
+FAITHFULNESS: Every factual claim in your answer must come from the provided facts. You may use connective phrases and light framing to make the answer read naturally, but do not introduce new factual claims from your general knowledge. If the facts say "The fee is $50" you write "The fee is $50." You do not add "typically paid by credit card" unless that's in the facts.
 
 Writing style:
-- Helpful and direct, not legalistic or bureaucratic
-- Lead with the answer, not background context
+- Lead with a clear, direct answer to the question in 1-2 sentences
+- Then expand with relevant details, specifics, and context from the facts
+- Use bullet points or numbered lists when presenting multiple items (requirements, steps, options, dates)
 - Preserve specific dates, credit hours, fees, and deadlines exactly as stated
+- Synthesize redundant facts—don't repeat the same point twice
 - If facts contain URLs, include them naturally in the answer
-- Synthesize redundant facts—don't repeat the same point twice""",
+- Aim for a complete answer that saves the reader from needing to search further""",
             user_prompt=user_prompt,
             tools=tools,
             tool_choice=tool_choice,
-            max_tokens=2000
+            max_tokens=4000
         )
 
         if response:
