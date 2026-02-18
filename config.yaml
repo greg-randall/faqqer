@@ -19,7 +19,6 @@ clustering:
   dedup_similarity_threshold: 0.95   # Cosine sim above this = duplicate
   min_cluster_size: 5                # HDBSCAN minimum cluster size
   max_cluster_size: 15               # Triggers recursive split above this
-  noise_recovery_threshold: 0.6      # Only recover noise facts above this similarity
 
 # --- API ---
 api:

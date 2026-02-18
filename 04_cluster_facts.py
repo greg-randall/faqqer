@@ -152,50 +152,42 @@ def recursive_cluster(df):
 
     return df
 
-NOISE_RECOVERY_THRESHOLD = config.NOISE_RECOVERY_THRESHOLD
-
-def recover_noise(df):
+def drop_noise(df):
     """
-    Recover noise facts that are close enough to a real cluster.
-    Facts below NOISE_RECOVERY_THRESHOLD stay as noise (and never become FAQ entries).
+    Remove noise facts from the dataset. If HDBSCAN labeled them as noise,
+    they're too dissimilar to belong to any cluster and shouldn't become FAQ entries.
     """
     noise_mask = df['cluster_label'].str.endswith('_noise')
-    noise_df = df[noise_mask]
-    valid_df = df[~noise_mask]
-
-    if len(noise_df) == 0 or len(valid_df) == 0:
-        return df
-
-    print(f"\nAttempting noise recovery for {len(noise_df)} facts (threshold={NOISE_RECOVERY_THRESHOLD})...")
-
-    # Compute centroid for each non-noise cluster
-    cluster_labels = valid_df['cluster_label'].unique()
-    centroids = {}
-    for label in cluster_labels:
-        cluster_vectors = np.vstack(valid_df[valid_df['cluster_label'] == label]['vector'].values)
-        centroids[label] = cluster_vectors.mean(axis=0)
-
-    centroid_labels = list(centroids.keys())
-    centroid_matrix = np.vstack([centroids[l] for l in centroid_labels])
-
-    # For each noise fact, find nearest cluster — only reassign if similar enough
-    noise_vectors = np.vstack(noise_df['vector'].values)
-    similarities = cosine_similarity(noise_vectors, centroid_matrix)
-
-    recovered = 0
-    kept_noise = 0
-    for i, noise_idx in enumerate(noise_df.index):
-        best_cluster_idx = similarities[i].argmax()
-        best_similarity = similarities[i][best_cluster_idx]
-
-        if best_similarity >= NOISE_RECOVERY_THRESHOLD:
-            df.at[noise_idx, 'cluster_label'] = centroid_labels[best_cluster_idx]
-            recovered += 1
-        else:
-            kept_noise += 1
-
-    print(f"  Recovered: {recovered} | Still noise: {kept_noise}")
+    noise_count = noise_mask.sum()
+    if noise_count > 0:
+        print(f"\nDropping {noise_count} noise facts.")
+    df = df[~noise_mask].copy()
     return df
+
+def order_by_centrality(df):
+    """
+    Within each cluster, order facts by cosine similarity to the cluster centroid.
+    Most representative facts come first, so downstream generation covers the core
+    of the cluster even if it can't fit every fact into the answer.
+    """
+    print("\nOrdering facts by centroid closeness within each cluster...")
+
+    ordered_indices = []
+    for label, group in df.groupby('cluster_label'):
+        if len(group) <= 1:
+            ordered_indices.extend(group.index.tolist())
+            continue
+
+        vectors = np.vstack(group['vector'].values)
+        centroid = vectors.mean(axis=0).reshape(1, -1)
+        similarities = cosine_similarity(vectors, centroid).flatten()
+
+        # Sort descending: most central fact first
+        sorted_local = np.argsort(-similarities)
+        ordered_indices.extend(group.index[sorted_local].tolist())
+
+    return df.loc[ordered_indices].reset_index(drop=True)
+
 
 def print_statistics(df):
     """
@@ -266,12 +258,14 @@ def main():
     # 3. Recursive Cluster
     df = recursive_cluster(df)
 
-    # 4. Noise Recovery: assign noise facts to nearest cluster
-    df = recover_noise(df)
+    # 4. Drop noise facts
+    df = drop_noise(df)
 
-    # 5. Cleanup & Export
-    # Sort for easier reading: 0_0_0, 0_0_1, etc.
-    output_df = df[['cluster_label', 'source', 'fact']].sort_values(by=['cluster_label', 'source'])
+    # 5. Order facts by centrality within each cluster
+    df = order_by_centrality(df)
+
+    # 6. Cleanup & Export
+    output_df = df[['cluster_label', 'source', 'fact']]
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
@@ -281,7 +275,7 @@ def main():
     print(f"\nDone! Saved granular clusters to {OUTPUT_FILE}")
     print("Check the 'cluster_label' column to see the hierarchy (e.g., '0_3_1').")
 
-    # 6. Output Stats
+    # 7. Output Stats
     print_statistics(output_df)
 
 if __name__ == "__main__":

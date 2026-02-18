@@ -26,7 +26,6 @@ TEMPERATURE = _cfg['temperature']
 DEDUP_SIMILARITY_THRESHOLD = _cfg['clustering']['dedup_similarity_threshold']
 MIN_CLUSTER_SIZE = _cfg['clustering']['min_cluster_size']
 MAX_CLUSTER_SIZE = _cfg['clustering']['max_cluster_size']
-NOISE_RECOVERY_THRESHOLD = _cfg['clustering']['noise_recovery_threshold']
 
 # --- API ---
 EMBEDDING_BATCH_SIZE = _cfg['api']['embedding_batch_size']
