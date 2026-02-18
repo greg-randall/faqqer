@@ -154,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="mb-3">
                             <label class="form-label fw-bold small text-muted">Source Facts (Reference)</label>
-                            <div class="bg-light p-3 rounded border" id="sourceFactsDisplay" style="max-height: 250px; overflow-y: auto; font-size: 0.95em;">
+                            <div class="bg-light p-3 rounded border" id="sourceFactsDisplay" style="font-size: 0.95em;">
                                 </div>
                         </div>
 
