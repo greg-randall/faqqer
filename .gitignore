@@ -27,3 +27,4 @@ CODE_REVIEW.md
 
 # Test fixtures (allow)
 !tests/fixtures/*
+*.bak

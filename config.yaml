@@ -6,7 +6,7 @@
 models:
   helper: gpt-4o-mini          # Steps 02, 05, 06 (categorize, score)
   smart: gpt-4o                # Step 06 audit (stronger cross-check)
-  embedding: text-embedding-3-small  # Step 03 embeddings
+  embedding: text-embedding-3-large  # Step 03 embeddings
 
 # --- Generation ---
 # Default temperature for LLM calls (extraction, synthesis, scoring).
