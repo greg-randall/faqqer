@@ -13,11 +13,10 @@
     "category": "About & Contact",
     "status": "approved",
     "audit_status": "PASS",
-    "audit_reason": "All claims are supported by source facts.",
+    "audit_reason": "",
     "score_universality": 8,
     "score_criticality": 5,
     "score_demand": 7,
-    "score_reason": "Mission and contact info are commonly searched.",
     "utility_score": 6.7,
     "admin_notes": ""
   },
@@ -36,11 +35,10 @@
     "category": "Programs & Admissions",
     "status": "rejected",
     "audit_status": "PASS",
-    "audit_reason": "All claims match source facts.",
+    "audit_reason": "",
     "score_universality": 9,
     "score_criticality": 8,
     "score_demand": 9,
-    "score_reason": "Cost and requirements are top queries.",
     "utility_score": 8.7,
     "admin_notes": "Needs human review of pricing accuracy"
   }

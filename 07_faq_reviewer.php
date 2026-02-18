@@ -319,9 +319,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (item.audit_status) {
             const auditColor = item.audit_status === 'PASS' ? 'success' : 'danger';
             const auditIcon = item.audit_status === 'PASS' ? 'check' : 'exclamation-triangle';
-            auditHtml = `<span class="badge bg-${auditColor}" title="${escapeHtml(item.audit_reason || '')}">
+            auditHtml = `<span class="badge bg-${auditColor}">
                             <i class="fas fa-${auditIcon}"></i> AUDIT: ${escapeHtml(item.audit_status)}
                          </span>`;
+            if (item.audit_reason) {
+                auditHtml += ` <span class="small text-muted">${escapeHtml(item.audit_reason)}</span>`;
+            }
         }
         $('#auditBadgeArea').html(auditHtml);
 
@@ -345,7 +348,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <div class="progress" style="height: 6px;">
                                     <div class="progress-bar" role="progressbar" style="width: ${item.utility_score * 10}%"></div>
                                 </div>
-                                <div class="small text-muted mt-1 italic">"${escapeHtml(item.score_reason || '')}"</div>
                             </div>
                         </div>
                     </div>

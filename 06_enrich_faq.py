@@ -225,10 +225,10 @@ audit_tools = [
                     },
                     "reason": {
                         "type": "string",
-                        "description": "A brief explanation of the judgment. If FAIL, point out the specific error."
+                        "description": "If FAIL, one sentence identifying the specific error. Omit if PASS."
                     }
                 },
-                "required": ["status", "reason"]
+                "required": ["status"]
             }
         }
     }
@@ -262,12 +262,8 @@ eval_tools = [
                         "minimum": 1,
                         "maximum": 10
                     },
-                    "reasoning": {
-                        "type": "string",
-                        "description": "Brief justification for the scores."
-                    }
                 },
-                "required": ["universality_score", "criticality_score", "search_demand_score", "reasoning"]
+                "required": ["universality_score", "criticality_score", "search_demand_score"]
             }
         }
     }
@@ -340,7 +336,7 @@ Verify compliance."""
                 try:
                     res = json.loads(response_audit)
                     entry['audit_status'] = res['status']
-                    entry['audit_reason'] = res['reason']
+                    entry['audit_reason'] = res.get('reason', '')
                     print(f"Audit: {res['status']}", end=" | ")
                 except (json.JSONDecodeError, KeyError) as e:
                     print(f"Audit: ERR ({type(e).__name__})", end=" | ")
@@ -388,8 +384,6 @@ Evaluate the utility."""
                     entry['score_universality'] = res['universality_score']
                     entry['score_criticality'] = res['criticality_score']
                     entry['score_demand'] = res['search_demand_score']
-                    entry['score_reason'] = res['reasoning']
-
                     avg_score = (res['universality_score'] + res['criticality_score'] + res['search_demand_score']) / 3
                     entry['utility_score'] = round(avg_score, 1)
 
