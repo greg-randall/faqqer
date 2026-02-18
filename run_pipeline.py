@@ -3,7 +3,6 @@ import sys
 import json
 import subprocess
 import argparse
-import xml.etree.ElementTree as ET
 
 
 def run_step(script_name, args=None, env=None):
@@ -45,27 +44,47 @@ def find_run_dir_from_step01():
 
 def main():
     parser = argparse.ArgumentParser(description="Run the Faqqer pipeline (Steps 01-06).")
-    parser.add_argument("xml_file", help="Path to the WordPress XML export file.")
+    parser.add_argument("input_path", nargs='?', default=None,
+                        help="Path to a WordPress XML file or a directory of .md files.")
     parser.add_argument("--run-dir", dest="run_dir", default=None,
-                        help="Resume into an existing run directory instead of creating a new one.")
+                        help="Resume into an existing run directory (skips step 01).")
     args = parser.parse_args()
 
-    if not os.path.exists(args.xml_file):
-        print(f"Error: File '{args.xml_file}' not found.")
-        sys.exit(1)
+    # Validate: need either input_path or --run-dir
+    if not args.input_path and not args.run_dir:
+        parser.error("Either provide an input path or use --run-dir to resume.")
 
-    # --- PIPELINE EXECUTION ---
+    # --- STEP 01: Import ---
 
-    # Step 1: Extract (creates run dir)
-    step01_args = [args.xml_file]
     if args.run_dir:
-        step01_args += ['--run-dir', args.run_dir]
-    run_step("01_extract_content.py", step01_args)
-
-    # Determine run dir: either specified or find the one step 01 just created
-    if args.run_dir:
+        # Skip step 01 entirely — resume from existing run
         run_dir = args.run_dir
+        if not os.path.isdir(run_dir):
+            print(f"Error: Run directory '{run_dir}' not found.")
+            sys.exit(1)
     else:
+        input_path = args.input_path
+
+        if not os.path.exists(input_path):
+            print(f"Error: '{input_path}' not found.")
+            sys.exit(1)
+
+        # Auto-detect input type
+        if os.path.isdir(input_path):
+            # Markdown folder
+            step01_script = "01_import_markdown.py"
+            step01_args = [input_path]
+        elif input_path.lower().endswith('.xml'):
+            # WordPress XML
+            step01_script = "01_import_wordpress.py"
+            step01_args = [input_path]
+        else:
+            print(f"Error: Unrecognized input type for '{input_path}'. Expected a directory or .xml file.")
+            sys.exit(1)
+
+        run_step(step01_script, step01_args)
+
+        # Find the run dir that step 01 just created
         run_dir = find_run_dir_from_step01()
         if not run_dir:
             print("Error: Could not find run directory created by step 01.")

@@ -7,7 +7,7 @@ from tests.conftest import import_step, fixture_path
 
 @pytest.fixture
 def extract_module():
-    return import_step("01_extract_content")
+    return import_step("01_import_wordpress")
 
 
 class TestExtractContent:

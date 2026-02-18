@@ -13,41 +13,76 @@ def pipeline_module():
 
 
 class TestRunPipeline:
-    def test_successful_run(self, pipeline_module, tmp_path):
-        """All steps succeed — pipeline completes without exit."""
-        xml_file = str(tmp_path / "test.xml")
-        with open(xml_file, 'w') as f:
-            f.write("<rss></rss>")
-
+    def test_successful_run_with_run_dir(self, pipeline_module, tmp_path):
+        """With --run-dir, step 01 is skipped — only steps 02-06 run (5 calls)."""
         run_dir = str(tmp_path / "runs" / "test_run")
+        os.makedirs(run_dir)
 
         with patch.object(pipeline_module.subprocess, 'run',
                          return_value=MagicMock(returncode=0)) as mock_run, \
-             patch.object(pipeline_module, 'os') as mock_os, \
-             patch('sys.argv', ['run_pipeline.py', xml_file, '--run-dir', run_dir]):
-            mock_os.path.exists.return_value = True
-            mock_os.environ = os.environ.copy()
+             patch('sys.argv', ['run_pipeline.py', '--run-dir', run_dir]):
             pipeline_module.main()
 
-        # Should have called subprocess.run 6 times (steps 01-06)
-        assert mock_run.call_count == 6
+        assert mock_run.call_count == 5
 
-    def test_mid_pipeline_failure(self, pipeline_module, tmp_path):
-        """If a step fails, pipeline should exit with that return code."""
+    def test_successful_run_xml(self, pipeline_module, tmp_path):
+        """XML input auto-detects to 01_import_wordpress.py — 6 calls total."""
         xml_file = str(tmp_path / "test.xml")
         with open(xml_file, 'w') as f:
             f.write("<rss></rss>")
 
+        # Create a fake run dir for find_run_dir_from_step01 to discover
         run_dir = str(tmp_path / "runs" / "test_run")
+        os.makedirs(run_dir)
+        with open(os.path.join(run_dir, ".run_info.json"), 'w') as f:
+            json.dump({"domain": "test"}, f)
+
+        with patch.object(pipeline_module.subprocess, 'run',
+                         return_value=MagicMock(returncode=0)) as mock_run, \
+             patch.object(pipeline_module, 'find_run_dir_from_step01',
+                         return_value=run_dir), \
+             patch('sys.argv', ['run_pipeline.py', xml_file]):
+            pipeline_module.main()
+
+        assert mock_run.call_count == 6
+        # First call should be the wordpress importer
+        first_cmd = mock_run.call_args_list[0][0][0]
+        assert '01_import_wordpress.py' in first_cmd
+
+    def test_successful_run_markdown_dir(self, pipeline_module, tmp_path):
+        """Directory input auto-detects to 01_import_markdown.py — 6 calls total."""
+        md_dir = str(tmp_path / "my_docs")
+        os.makedirs(md_dir)
+        with open(os.path.join(md_dir, "test.md"), 'w') as f:
+            f.write("# Test")
+
+        run_dir = str(tmp_path / "runs" / "test_run")
+        os.makedirs(run_dir)
+        with open(os.path.join(run_dir, ".run_info.json"), 'w') as f:
+            json.dump({"name": "test"}, f)
+
+        with patch.object(pipeline_module.subprocess, 'run',
+                         return_value=MagicMock(returncode=0)) as mock_run, \
+             patch.object(pipeline_module, 'find_run_dir_from_step01',
+                         return_value=run_dir), \
+             patch('sys.argv', ['run_pipeline.py', md_dir]):
+            pipeline_module.main()
+
+        assert mock_run.call_count == 6
+        first_cmd = mock_run.call_args_list[0][0][0]
+        assert '01_import_markdown.py' in first_cmd
+
+    def test_mid_pipeline_failure(self, pipeline_module, tmp_path):
+        """If a step fails, pipeline should exit with that return code."""
+        run_dir = str(tmp_path / "runs" / "test_run")
+        os.makedirs(run_dir)
+
         fail_result = MagicMock(returncode=1)
         success_result = MagicMock(returncode=0)
 
         with patch.object(pipeline_module.subprocess, 'run',
                          side_effect=[success_result, fail_result]) as mock_run, \
-             patch.object(pipeline_module, 'os') as mock_os, \
-             patch('sys.argv', ['run_pipeline.py', xml_file, '--run-dir', run_dir]):
-            mock_os.path.exists.return_value = True
-            mock_os.environ = os.environ.copy()
+             patch('sys.argv', ['run_pipeline.py', '--run-dir', run_dir]):
             with pytest.raises(SystemExit) as exc_info:
                 pipeline_module.main()
 
@@ -55,37 +90,39 @@ class TestRunPipeline:
 
     def test_env_var_passed_to_steps(self, pipeline_module, tmp_path):
         """Steps 02-06 should receive FAQQER_RUN_DIR in their environment."""
-        xml_file = str(tmp_path / "test.xml")
-        with open(xml_file, 'w') as f:
-            f.write("<rss></rss>")
-
         run_dir = str(tmp_path / "runs" / "test_run")
+        os.makedirs(run_dir)
         captured_envs = []
 
         def capture_env(cmd, env=None):
             if env:
                 captured_envs.append(env.get('FAQQER_RUN_DIR'))
+            else:
+                captured_envs.append(None)
             return MagicMock(returncode=0)
 
         with patch.object(pipeline_module.subprocess, 'run', side_effect=capture_env), \
-             patch.object(pipeline_module, 'os') as mock_os, \
-             patch('sys.argv', ['run_pipeline.py', xml_file, '--run-dir', run_dir]):
-            mock_os.path.exists.return_value = True
-            mock_os.environ = os.environ.copy()
+             patch('sys.argv', ['run_pipeline.py', '--run-dir', run_dir]):
             pipeline_module.main()
 
-        # Step 01 doesn't get env (uses --run-dir arg), steps 02-06 get it
-        assert captured_envs[0] is None  # step 01
-        for env_val in captured_envs[1:]:
+        # With --run-dir, step 01 is skipped; all 5 calls (steps 02-06) get env
+        assert len(captured_envs) == 5
+        for env_val in captured_envs:
             assert env_val == run_dir
 
-    def test_missing_xml_file(self, pipeline_module, tmp_path, capsys):
-        """Should print error and exit if XML file doesn't exist."""
+    def test_missing_input(self, pipeline_module, tmp_path):
+        """Should exit if input path doesn't exist."""
         with patch('sys.argv', ['run_pipeline.py', '/nonexistent/file.xml']):
             with pytest.raises(SystemExit) as exc_info:
                 pipeline_module.main()
 
         assert exc_info.value.code == 1
+
+    def test_no_args_errors(self, pipeline_module):
+        """Should error when neither input_path nor --run-dir is given."""
+        with patch('sys.argv', ['run_pipeline.py']):
+            with pytest.raises(SystemExit):
+                pipeline_module.main()
 
 
 class TestFindRunDir:
