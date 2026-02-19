@@ -1,6 +1,7 @@
 import json
 import html
 import os
+import argparse
 import config
 
 # CONFIGURATION
@@ -36,6 +37,11 @@ SPACER_BLOCK = """<!-- wp:spacer {{"height":"40px"}} -->
 """
 
 def main():
+    parser = argparse.ArgumentParser(description="Generate WordPress block HTML from approved FAQ entries.")
+    parser.add_argument("--force", action="store_true",
+                        help="Include all items regardless of approval status.")
+    args = parser.parse_args()
+
     # 1. Load Data
     if not os.path.exists(INPUT_JSON):
         print(f"Error: Could not find {INPUT_JSON}")
@@ -44,12 +50,12 @@ def main():
     with open(INPUT_JSON, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    # 2. Filter & Group Approved Items
+    # 2. Filter & Group Items
     grouped_data = {}
     approved_count = 0
 
     for item in data:
-        if item.get('status') == 'approved':
+        if args.force or item.get('status') == 'approved':
             category = item.get('category', 'General')
             if category not in grouped_data:
                 grouped_data[category] = []
@@ -57,10 +63,14 @@ def main():
             approved_count += 1
 
     if approved_count == 0:
-        print("WARNING: No 'approved' items found! Please use the reviewer tool first.")
+        if args.force:
+            print("WARNING: No items found in the data file.")
+        else:
+            print("WARNING: No 'approved' items found! Please use the reviewer tool first, or run with --force.")
         return
 
-    print(f"Generating WordPress block HTML for {approved_count} approved items...")
+    label = "items" if args.force else "approved items"
+    print(f"Generating WordPress block HTML for {approved_count} {label}...")
 
     # 3. Build HTML
     wp_html = []
