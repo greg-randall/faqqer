@@ -48,34 +48,38 @@ An LLM writes a concise answer grounded only in the cluster's facts — no outsi
 
 1.  **Install:** `pip install openai pandas scikit-learn numpy pytest markdownify pyyaml`
 2.  **Configure:** Set `export OPENAI_API_KEY="sk-..."`
-3.  **Run:** `python run_pipeline.py <your_wordpress_export.xml>`
+3.  **Run:** `python run_pipeline.py <wordpress_export.xml | markdown_folder>`
 4.  **Review:** Open the PHP tool to approve and edit the generated FAQs.
 
 ## Pipeline steps
 
-The project uses an 8-step process to go from raw XML to a categorized FAQ.
+Faqqer uses a run-based architecture. Each execution creates a timestamped folder in `runs/` (e.g., `runs/example.com_2026-02-19_120000/`) containing all intermediate data.
 
 ### 1. The Scripts
 
-* `01_extract_content.py`: Parses WordPress XML into Markdown files with source metadata.
-* `02_process_content.py`: Uses GPT-4o-mini to extract standalone facts from the Markdown.
-* `03_generate_embeddings.py`: Generates vectors for each fact using `text-embedding-3-small`.
-* `04_cluster_facts.py`: Uses HDBSCAN and Recursive K-Means to group facts into topics and deduplicate similar information.
+* `01_import_wordpress.py`: Parses WordPress XML into Markdown files.
+* `01_import_markdown.py`: Imports a directory of existing Markdown files.
+* `02_process_content.py`: Uses GPT-4o-mini to extract standalone facts from Markdown.
+* `03_generate_embeddings.py`: Generates vectors for each fact using `text-embedding-3-large`.
+* `04_cluster_facts.py`: Groups facts into topics using HDBSCAN and Recursive K-Means.
 * `05_generate_faq.py`: Drafts a question and answer for each cluster.
-* `06_enrich_faq.py`: Categorizes entries, maps them to original URLs, and uses GPT-4o to audit for hallucinations.
+* `06_enrich_faq.py`: Categorizes entries and audits for hallucinations.
 * `07_faq_reviewer.php`: PHP interface for human review and editing.
 * `08_generate_wp_html.py`: Converts approved entries into WordPress Gutenberg blocks.
 
 ### 2. Helper Modules
 
 * `openai_helper.py`: Manages OpenAI API calls, including error handling and batching.
+* `config.py`: Handles run-directory path resolution via `FAQQER_RUN_DIR`.
 
 ---
 
 ## Data Formats
 
+Each run stores data in a dedicated folder. Below are the relative paths within a run directory:
+
 ### Phase 1: Clean Markdown (`/content/`)
-Markdown files with `Source URL` and `ID` headers.
+Markdown files with source metadata.
 
 ```markdown
 # Academic Calendar
@@ -87,67 +91,52 @@ Markdown files with `Source URL` and `ID` headers.
 ```
 
 ### Phase 2: Atomic Facts JSON (`/content_processed/`)
-Facts extracted by the LLM with context injected (e.g., pronouns replaced with names).
-
-```json
-{
-  "page_topic": "Academic Calendar",
-  "facts": [
-    "The Fall 2025 Orientation for New Employees is from Monday, August 11 through Friday, August 15.",
-    "The Fall 2025 registration bills are available on the portal on August 15."
-  ],
-  "source_file": "academics_calendar.md"
-}
-```
+Facts extracted by the LLM with context injected.
 
 ### Phase 3: Embedded Facts JSON (`/content_embedded/`)
 The same data as Phase 2, but with vector arrays.
 
-### Phase 4: Cluster Report (`data/fact_clusters.csv`)
+### Phase 4: Cluster Report (`/data/fact_clusters.csv`)
 A CSV mapping facts to hierarchical labels (e.g., `0_5_1`).
 
-| cluster_label | source | fact |
-| --- | --- | --- |
-| 0_5_1 | hr_calendar.md | The Fall 2025 Orientation... |
-| 0_5_1 | employees_events.md | Orientation is mandatory for new hires... |
-| 0_12_0 | admissions_fees.md | The application fee is $50... |
+### Phase 5-6: FAQ JSON (`/data/faq_raw.json` & `faq_categorized.json`)
+Initial and enriched Q&A pairs with linked source facts and audit scores.
 
-### Phase 5: FAQ JSON (`data/faq_raw.json`)
-Initial Q&A pairs with linked source facts.
-
-### Phase 6: Enriched FAQ (`data/faq_categorized.json`)
-Adds categories, live URLs, audit results, and utility scores.
-
-### Phase 7: Reviewed FAQ
-Updates the enriched JSON after manual edits in the PHP tool.
-
-### Phase 8: WordPress HTML (`data/faq_final.html`)
-HTML output for `approved` items, sorted by category and score.
+### Phase 7-8: Final Output
+The review tool updates `faq_categorized.json`, and the generator produces `/data/faq_final.html`.
 
 ---
 
 ## Usage & Development
 
-**Execution:**
+**Automated Pipeline:**
 
 ```bash
-# Run the full pipeline
+# Provide either an XML export or a folder of markdown files
 python run_pipeline.py wordpress-export.xml
+```
 
-# Or run individual steps
-python 01_extract_content.py wordpress-export.xml
+**Manual Execution:**
+
+To run or resume a specific step, set the `FAQQER_RUN_DIR` environment variable:
+
+```bash
+export FAQQER_RUN_DIR="runs/your_run_folder"
+
 python 02_process_content.py
 python 03_generate_embeddings.py
-python 04_cluster_facts.py
-python 05_generate_faq.py
-python 06_enrich_faq.py
+# ... etc
+```
 
-# Review
-php -S localhost:8000
-# Open: http://localhost:8000/07_faq_reviewer.php
+**Review:**
+```bash
+FAQQER_RUN_DIR="runs/your_run_folder" php -S localhost:8000
+# Open: http://localhost:8000/07_faq_reviewer.php?run_dir=runs/your_run_folder
+```
 
-# Generate HTML
-python 08_generate_wp_html.py
+**Generate HTML:**
+```bash
+FAQQER_RUN_DIR="runs/your_run_folder" python 08_generate_wp_html.py
 ```
 
 **Testing:**
