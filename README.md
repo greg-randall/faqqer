@@ -46,7 +46,7 @@ An LLM writes a concise answer grounded only in the cluster's facts — no outsi
 
 ## Quick Start
 
-1.  **Install:** `pip install openai pandas scikit-learn numpy pytest markdownify pyyaml`
+1.  **Install:** `pip install openai pandas scikit-learn numpy pytest markdownify pyyaml lxml`
 2.  **Configure:** Set `export OPENAI_API_KEY="sk-..."`
 3.  **Run:** `python run_pipeline.py <wordpress_export.xml | markdown_folder>`
 4.  **Review:** Open the PHP tool to approve and edit the generated FAQs.
