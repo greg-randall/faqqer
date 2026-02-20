@@ -3,68 +3,11 @@ import json
 import argparse
 import openai_helper
 import config
+import prompts
 
 # Configuration
 INPUT_DIR = os.path.join(config.get_run_dir(), "content")
 OUTPUT_DIR = os.path.join(config.get_run_dir(), "content_processed")
-
-# ---------------------------------------------------------
-# Define the Tool (JSON Schema)
-# ---------------------------------------------------------
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "extract_atomic_facts",
-            "description": "Extracts a list of standalone, atomic facts from the webpage text.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "page_topic": {
-                        "type": "string",
-                        "description": "A short 2-5 word title describing the page's main subject."
-                    },
-                    "facts": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "A list of distinct, standalone facts. No marketing fluff."
-                    }
-                },
-                "required": ["page_topic", "facts"]
-            }
-        }
-    }
-]
-
-tool_choice = {"type": "function", "function": {"name": "extract_atomic_facts"}}
-
-# ---------------------------------------------------------
-# System Prompt (Version 2 - Context Injection)
-# ---------------------------------------------------------
-SYSTEM_PROMPT = """You are an expert Information Architect optimizing content for an Organizational Answer Engine.
-
-Your goal is to extract 'Atomic Facts' from the provided content.
-
-Rules for Atomic Facts:
-1. Standalone & Specific: Each fact must be fully intelligible on its own WITHOUT context.
-   - BAD: "The application fee is $50." (Which application?)
-   - GOOD: "The Enterprise Plan subscription fee is $50/month."
-   - BAD: "It is due by March 1st."
-   - GOOD: "The Q4 project deliverables are due by November 1st."
-
-2. Context Injection: You must inject the specific subject (e.g., "The Clinical Program," "The Internal Library") into every sentence. Never use generic terms like "the program," "the office," or "the requirements" unless you qualify them (e.g., "the project requirements").
-
-3. No Marketing: Ignore subjective adjectives, welcome messages, or fluff. Focus on verifiable data: dates, fees, requirements, policies, names, and contact info.
-
-4. Canonical: If the text lists a specific contact (phone, email), extract it explicitly.
-
-5. Granularity: Split complex sentences into multiple simple facts.
-
-6. Preserve Precision: Keep all numbers, dates, proper nouns, URLs, emails, and phone numbers exactly as written. Never paraphrase numerical data.
-
-7. Be Exhaustive: Extract every distinct fact. Do not summarize or skip. For lists and tables, extract each row/item as a separate fact."""
 
 
 def _strip_metadata_header(content):
@@ -132,10 +75,10 @@ def process_files(limit=None):
 
         # Send to OpenAI
         response_json_str = openai_helper.openai_llm_request(
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=prompts.get("process_content.system"),
             user_prompt=clean_content,
-            tools=tools,
-            tool_choice=tool_choice,
+            tools=prompts.get_tools("process_content"),
+            tool_choice=prompts.get_tool_choice("process_content"),
             max_tokens=16000
         )
 

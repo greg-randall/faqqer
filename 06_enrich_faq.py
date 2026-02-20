@@ -1,10 +1,12 @@
 import json
 import os
 import re
+import copy
 import tempfile
 import argparse
 import openai_helper
 import config
+import prompts
 
 # CONFIGURATION
 INPUT_FILE = os.path.join(config.get_run_dir(), "data", "faq_raw.json")
@@ -29,47 +31,11 @@ def discover_natural_categories(data):
 
     questions_text = "\n".join(clean_questions)
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "generate_taxonomy",
-                "description": "Generates a list of thematic categories based on input text.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "category_list": {
-                            "type": "array",
-                            "description": "The list of discovered category names.",
-                            "items": {"type": "string"}
-                        },
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Brief explanation of why these groups were chosen."
-                        }
-                    },
-                    "required": ["category_list"]
-                }
-            }
-        }
-    ]
-    tool_choice = {"type": "function", "function": {"name": "generate_taxonomy"}}
-
-    system_prompt = """You are an expert Information Architect and Clustering Engine.
-
-    Your Goal: Analyze the unstructured list of user questions and identify the *natural* thematic groupings.
-
-    Rules:
-    1. Do NOT force a specific number of categories.
-    2. If the data is diverse, create many specific categories. If it is homogenous, create fewer broad ones.
-    3. Category names should be short, clear, and distinct (e.g., "Tuition & Fees", "Technical Support").
-    4. Avoid generic names like "General" or "Miscellaneous" unless absolutely necessary."""
-
     response = openai_helper.openai_llm_request(
-        system_prompt=system_prompt,
+        system_prompt=prompts.get("enrich_faq.discover_categories.system"),
         user_prompt=f"Here is the dataset of questions:\n\n{questions_text}",
-        tools=tools,
-        tool_choice=tool_choice,
+        tools=prompts.get_tools("enrich_faq.discover_categories"),
+        tool_choice=prompts.get_tool_choice("enrich_faq.discover_categories"),
         max_tokens=1000
     )
 
@@ -89,33 +55,15 @@ def discover_natural_categories(data):
 
 def assign_category(question_text, taxonomy):
     """Assign a single category to a question from the discovered taxonomy."""
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "classify_entry",
-                "description": "Maps a question to a category.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "category": {
-                            "type": "string",
-                            "enum": taxonomy,
-                            "description": "The best matching category."
-                        }
-                    },
-                    "required": ["category"]
-                }
-            }
-        }
-    ]
-    tool_choice = {"type": "function", "function": {"name": "classify_entry"}}
+    # Get tools template and inject the runtime taxonomy enum
+    classify_tools = prompts.get_tools("enrich_faq.classify")
+    classify_tools[0]["function"]["parameters"]["properties"]["category"]["enum"] = taxonomy
 
     response = openai_helper.openai_llm_request(
-        system_prompt=f"You are a classifier. Map the user query to exactly one of these categories: {json.dumps(taxonomy)}.",
+        system_prompt=prompts.get("enrich_faq.classify.system", taxonomy=json.dumps(taxonomy)),
         user_prompt=f"Query: {question_text}",
-        tools=tools,
-        tool_choice=tool_choice,
+        tools=classify_tools,
+        tool_choice=prompts.get_tool_choice("enrich_faq.classify"),
         max_tokens=100
     )
 
@@ -209,66 +157,7 @@ def phase_url_enrichment(data):
 # PHASE C: AUDIT + SCORE
 # =========================================================
 
-audit_tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "audit_faq_entry",
-            "description": "Evaluates the accuracy and faithfulness of an FAQ answer based on provided source facts.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "status": {
-                        "type": "string",
-                        "enum": ["PASS", "FAIL"],
-                        "description": "PASS if the answer is fully supported by the facts. FAIL if it contains hallucinations, contradictions, or assumes information not present."
-                    },
-                    "reason": {
-                        "type": "string",
-                        "description": "If FAIL, one sentence identifying the specific error. Omit if PASS."
-                    }
-                },
-                "required": ["status"]
-            }
-        }
-    }
-]
-audit_tool_choice = {"type": "function", "function": {"name": "audit_faq_entry"}}
 
-eval_tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "evaluate_faq_utility",
-            "description": "Scores the FAQ entry based on its usefulness and potential impact.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "universality_score": {
-                        "type": "integer",
-                        "description": "1-10 Score. How many users does this affect?",
-                        "minimum": 1,
-                        "maximum": 10
-                    },
-                    "criticality_score": {
-                        "type": "integer",
-                        "description": "1-10 Score. How bad is the consequence of NOT knowing this?",
-                        "minimum": 1,
-                        "maximum": 10
-                    },
-                    "search_demand_score": {
-                        "type": "integer",
-                        "description": "1-10 Score. How likely is a user to actively search for this?",
-                        "minimum": 1,
-                        "maximum": 10
-                    },
-                },
-                "required": ["universality_score", "criticality_score", "search_demand_score"]
-            }
-        }
-    }
-]
-eval_tool_choice = {"type": "function", "function": {"name": "evaluate_faq_utility"}}
 
 
 def phase_audit_and_score(data, limit=None, domain=None):
@@ -303,31 +192,12 @@ def phase_audit_and_score(data, limit=None, domain=None):
 
         # AUDIT (using GPT-4o for stronger cross-check)
         if 'audit_status' not in entry:
-            audit_system_prompt = """You are a strict QA Auditor for an automated knowledge base.
-Your job is to verify that the generated Answer is strictly supported by the provided Context Facts.
-
-Rules for Auditing:
-1. HALLUCINATION CHECK: If the Answer contains specific details (dates, names, prices, policies) NOT found in the Context Facts, you must FAIL.
-2. CONTRADICTION CHECK: If the Answer contradicts the Context Facts, you must FAIL.
-3. EXTRAPOLATION: Minimal logical inference is okay, but inventing policies or "standard practices" is not.
-4. If the answer is "I don't know" or "The facts do not state," that is a PASS (provided it's true).
-
-Be extremely pedantic. We cannot publish false information."""
-
-            audit_user_prompt = f"""CONTEXT FACTS:
-{fact_text}
-
-GENERATED QUESTION: {question}
-GENERATED ANSWER: {answer}
-
-Verify compliance."""
-
             response_audit = openai_helper.openai_llm_request(
-                system_prompt=audit_system_prompt,
-                user_prompt=audit_user_prompt,
+                system_prompt=prompts.get("enrich_faq.audit.system"),
+                user_prompt=prompts.get("enrich_faq.audit.user", fact_text=fact_text, question=question, answer=answer),
                 model=config.SMART_MODEL,
-                tools=audit_tools,
-                tool_choice=audit_tool_choice,
+                tools=prompts.get_tools("enrich_faq.audit"),
+                tool_choice=prompts.get_tool_choice("enrich_faq.audit"),
                 max_tokens=300,
                 temperature=0.0  # Always deterministic for audit
             )
@@ -351,30 +221,11 @@ Verify compliance."""
             if domain:
                 domain_context = f"\nContext: This FAQ is for a {domain}. Score accordingly — consider what matters most to {domain} stakeholders.\n"
 
-            eval_system_prompt = f"""You are a Senior Content Strategist evaluating the utility of FAQ entries.
-Score the provided Question/Answer pair on three dimensions using a strict 1-10 scale.
-{domain_context}
---- RUBRIC 1: UNIVERSALITY (REACH) ---
-1-2: Extremely Niche. 3-4: Specific Segment. 5-6: Broad Segment. 7-8: Majority. 9-10: Universal.
-
---- RUBRIC 2: CRITICALITY (IMPACT) ---
-1-2: Trivia. 3-4: Minor. 5-6: Operational. 7-8: High Impact. 9-10: Severe.
-
---- RUBRIC 3: SEARCH DEMAND (SEARCHABILITY) ---
-1-2: Serendipitous. 3-4: Low. 5-6: Moderate. 7-8: High. 9-10: Burning.
-
-Be objective and clinical."""
-
-            eval_user_prompt = f"""QUESTION: {question}
-ANSWER: {answer}
-
-Evaluate the utility."""
-
             response_eval = openai_helper.openai_llm_request(
-                system_prompt=eval_system_prompt,
-                user_prompt=eval_user_prompt,
-                tools=eval_tools,
-                tool_choice=eval_tool_choice,
+                system_prompt=prompts.get("enrich_faq.evaluate.system", domain_context=domain_context),
+                user_prompt=prompts.get("enrich_faq.evaluate.user", question=question, answer=answer),
+                tools=prompts.get_tools("enrich_faq.evaluate"),
+                tool_choice=prompts.get_tool_choice("enrich_faq.evaluate"),
                 max_tokens=300
             )
 

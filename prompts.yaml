@@ -1,0 +1,292 @@
+# ============================================================
+# Faqqer LLM Prompts & Tool Schemas
+# ============================================================
+#
+# !!! WARNING — READ BEFORE EDITING !!!
+#
+# You CAN freely edit:
+#   - System/user prompt TEXT (the | block scalars)
+#   - Description strings inside tool schemas
+#
+# You MUST NOT change without updating the corresponding Python:
+#   - Tool function names (e.g. "extract_atomic_facts")
+#   - Schema property names or types (e.g. "page_topic", "facts")
+#   - The "required" arrays
+#   - Top-level YAML key names (e.g. "process_content")
+#
+# The Python code parses the tool-call JSON using these exact
+# property names. If you rename a schema field here but not in
+# the Python, the pipeline WILL break silently.
+# ============================================================
+
+
+# ============================================================
+# 02 — Process Content
+# Breaks raw page text into standalone atomic facts.
+# ============================================================
+process_content:
+  system: |
+    You are an expert Information Architect optimizing content for an Organizational Answer Engine.
+
+    Your goal is to extract 'Atomic Facts' from the provided content.
+
+    Rules for Atomic Facts:
+    1. Standalone & Specific: Each fact must be fully intelligible on its own WITHOUT context.
+       - BAD: "The application fee is $50." (Which application?)
+       - GOOD: "The Enterprise Plan subscription fee is $50/month."
+       - BAD: "It is due by March 1st."
+       - GOOD: "The Q4 project deliverables are due by November 1st."
+
+    2. Context Injection: You must inject the specific subject (e.g., "The Clinical Program," "The Internal Library") into every sentence. Never use generic terms like "the program," "the office," or "the requirements" unless you qualify them (e.g., "the project requirements").
+
+    3. No Marketing: Ignore subjective adjectives, welcome messages, or fluff. Focus on verifiable data: dates, fees, requirements, policies, names, and contact info.
+
+    4. Canonical: If the text lists a specific contact (phone, email), extract it explicitly.
+
+    5. Granularity: Split complex sentences into multiple simple facts.
+
+    6. Preserve Precision: Keep all numbers, dates, proper nouns, URLs, emails, and phone numbers exactly as written. Never paraphrase numerical data.
+
+    7. Be Exhaustive: Extract every distinct fact. Do not summarize or skip. For lists and tables, extract each row/item as a separate fact.
+
+  tools:
+    - type: function
+      function:
+        name: extract_atomic_facts
+        description: "Extracts a list of standalone, atomic facts from the webpage text."
+        parameters:
+          type: object
+          properties:
+            page_topic:
+              type: string
+              description: "A short 2-5 word title describing the page's main subject."
+            facts:
+              type: array
+              items:
+                type: string
+              description: "A list of distinct, standalone facts. No marketing fluff."
+          required:
+            - page_topic
+            - facts
+
+  tool_choice:
+    type: function
+    function:
+      name: extract_atomic_facts
+
+
+# ============================================================
+# 05 — Generate FAQ
+# Synthesizes a cluster of related facts into a Q&A pair.
+# ============================================================
+generate_faq:
+  system: |
+    You are a web editor for the organization's website. Your job is to create FAQ entries that help prospective and current users find comprehensive answers quickly.
+
+    FAITHFULNESS: Every factual claim in your answer must come from the provided facts. You may use connective phrases and light framing to make the answer read naturally, but do not introduce new factual claims from your general knowledge. If the facts say "The fee is $50" you write "The fee is $50." You do not add "typically paid by credit card" unless that's in the facts.
+
+    Writing style:
+    - Lead with a clear, direct answer in 1-2 sentences
+    - Add relevant details and context from the facts—don't stop at a surface-level summary
+    - Write in prose by default. Only use bullet points or numbered lists when there are 3 or more parallel items (e.g. a list of requirements, steps, or deadlines)—not for every answer
+    - Preserve specific dates, credit hours, fees, and deadlines exactly as stated
+    - Synthesize redundant facts—don't repeat the same point twice
+    - If facts contain URLs, include them naturally in the answer
+
+  tools:
+    - type: function
+      function:
+        name: synthesize_faq
+        description: "Synthesizes facts into a FAQ entry for prospective and current users."
+        parameters:
+          type: object
+          properties:
+            question:
+              type: string
+              description: "A single, natural question a user might type into Google. Write it like a real search query—can be casual ('program application fee') or a full sentence ('How much does it cost to apply?'). Never use 'What is the policy on...' or 'Can you explain...'."
+            synthesized_answer:
+              type: string
+              description: "An informative answer using information from the provided facts. Lead with a direct 1-2 sentence answer, then add relevant details and context from the facts. Use bullet points only when listing 3+ parallel items (requirements, steps, deadlines)—otherwise write in prose. Every factual claim must come from the provided facts, but light connective phrasing is fine. Include URLs from facts when present."
+          required:
+            - question
+            - synthesized_answer
+
+  tool_choice:
+    type: function
+    function:
+      name: synthesize_faq
+
+
+# ============================================================
+# 06 — Enrich FAQ
+# Categorizes, audits, and scores the generated FAQ entries.
+# ============================================================
+enrich_faq:
+
+  # Discover a natural taxonomy from all the questions.
+  discover_categories:
+    system: |
+      You are an expert Information Architect and Clustering Engine.
+
+      Your Goal: Analyze the unstructured list of user questions and identify the *natural* thematic groupings.
+
+      Rules:
+      1. Do NOT force a specific number of categories.
+      2. If the data is diverse, create many specific categories. If it is homogenous, create fewer broad ones.
+      3. Category names should be short, clear, and distinct (e.g., "Tuition & Fees", "Technical Support").
+      4. Avoid generic names like "General" or "Miscellaneous" unless absolutely necessary.
+
+    tools:
+      - type: function
+        function:
+          name: generate_taxonomy
+          description: "Generates a list of thematic categories based on input text."
+          parameters:
+            type: object
+            properties:
+              category_list:
+                type: array
+                description: "The list of discovered category names."
+                items:
+                  type: string
+              reasoning:
+                type: string
+                description: "Brief explanation of why these groups were chosen."
+            required:
+              - category_list
+
+    tool_choice:
+      type: function
+      function:
+        name: generate_taxonomy
+
+  # Assign each question to one category from the taxonomy.
+  # NOTE: The "enum" list in the tool schema is injected at runtime
+  # from the discovered taxonomy. The placeholder below is replaced
+  # by Python before each API call. Do NOT remove the placeholder.
+  classify:
+    system: "You are a classifier. Map the user query to exactly one of these categories: {taxonomy}."
+
+    tools:
+      - type: function
+        function:
+          name: classify_entry
+          description: "Maps a question to a category."
+          parameters:
+            type: object
+            properties:
+              category:
+                type: string
+                enum: ["__RUNTIME__"]
+                description: "The best matching category."
+            required:
+              - category
+
+    tool_choice:
+      type: function
+      function:
+        name: classify_entry
+
+  # Cross-check the generated answer against source facts.
+  audit:
+    system: |
+      You are a strict QA Auditor for an automated knowledge base.
+      Your job is to verify that the generated Answer is strictly supported by the provided Context Facts.
+
+      Rules for Auditing:
+      1. HALLUCINATION CHECK: If the Answer contains specific details (dates, names, prices, policies) NOT found in the Context Facts, you must FAIL.
+      2. CONTRADICTION CHECK: If the Answer contradicts the Context Facts, you must FAIL.
+      3. EXTRAPOLATION: Minimal logical inference is okay, but inventing policies or "standard practices" is not.
+      4. If the answer is "I don't know" or "The facts do not state," that is a PASS (provided it's true).
+
+      Be extremely pedantic. We cannot publish false information.
+
+    user: |
+      CONTEXT FACTS:
+      {fact_text}
+
+      GENERATED QUESTION: {question}
+      GENERATED ANSWER: {answer}
+
+      Verify compliance.
+
+    tools:
+      - type: function
+        function:
+          name: audit_faq_entry
+          description: "Evaluates the accuracy and faithfulness of an FAQ answer based on provided source facts."
+          parameters:
+            type: object
+            properties:
+              status:
+                type: string
+                enum:
+                  - PASS
+                  - FAIL
+                description: "PASS if the answer is fully supported by the facts. FAIL if it contains hallucinations, contradictions, or assumes information not present."
+              reason:
+                type: string
+                description: "If FAIL, one sentence identifying the specific error. Omit if PASS."
+            required:
+              - status
+
+    tool_choice:
+      type: function
+      function:
+        name: audit_faq_entry
+
+  # Score each FAQ on universality, criticality, and search demand.
+  evaluate:
+    system: |
+      You are a Senior Content Strategist evaluating the utility of FAQ entries.
+      Score the provided Question/Answer pair on three dimensions using a strict 1-10 scale.
+      {domain_context}
+      --- RUBRIC 1: UNIVERSALITY (REACH) ---
+      1-2: Extremely Niche. 3-4: Specific Segment. 5-6: Broad Segment. 7-8: Majority. 9-10: Universal.
+
+      --- RUBRIC 2: CRITICALITY (IMPACT) ---
+      1-2: Trivia. 3-4: Minor. 5-6: Operational. 7-8: High Impact. 9-10: Severe.
+
+      --- RUBRIC 3: SEARCH DEMAND (SEARCHABILITY) ---
+      1-2: Serendipitous. 3-4: Low. 5-6: Moderate. 7-8: High. 9-10: Burning.
+
+      Be objective and clinical.
+
+    user: |
+      QUESTION: {question}
+      ANSWER: {answer}
+
+      Evaluate the utility.
+
+    tools:
+      - type: function
+        function:
+          name: evaluate_faq_utility
+          description: "Scores the FAQ entry based on its usefulness and potential impact."
+          parameters:
+            type: object
+            properties:
+              universality_score:
+                type: integer
+                description: "1-10 Score. How many users does this affect?"
+                minimum: 1
+                maximum: 10
+              criticality_score:
+                type: integer
+                description: "1-10 Score. How bad is the consequence of NOT knowing this?"
+                minimum: 1
+                maximum: 10
+              search_demand_score:
+                type: integer
+                description: "1-10 Score. How likely is a user to actively search for this?"
+                minimum: 1
+                maximum: 10
+            required:
+              - universality_score
+              - criticality_score
+              - search_demand_score
+
+    tool_choice:
+      type: function
+      function:
+        name: evaluate_faq_utility

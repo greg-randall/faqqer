@@ -6,6 +6,7 @@ import random
 import argparse
 import openai_helper
 import config
+import prompts
 
 
 def _normalize_key(key):
@@ -35,35 +36,6 @@ def fuzzy_get(data, key):
 # Configuration
 INPUT_CSV = os.path.join(config.get_run_dir(), "data", "fact_clusters.csv")
 OUTPUT_JSON = os.path.join(config.get_run_dir(), "data", "faq_raw.json")
-
-# ---------------------------------------------------------
-# Define the Tool (JSON Schema)
-# ---------------------------------------------------------
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "synthesize_faq",
-            "description": "Synthesizes facts into a FAQ entry for prospective and current users.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "A single, natural question a user might type into Google. Write it like a real search query—can be casual ('program application fee') or a full sentence ('How much does it cost to apply?'). Never use 'What is the policy on...' or 'Can you explain...'."
-                    },
-                    "synthesized_answer": {
-                        "type": "string",
-                        "description": "An informative answer using information from the provided facts. Lead with a direct 1-2 sentence answer, then add relevant details and context from the facts. Use bullet points only when listing 3+ parallel items (requirements, steps, deadlines)—otherwise write in prose. Every factual claim must come from the provided facts, but light connective phrasing is fine. Include URLs from facts when present."
-                    },
-                },
-                "required": ["question", "synthesized_answer"]
-            }
-        }
-    }
-]
-
-tool_choice = {"type": "function", "function": {"name": "synthesize_faq"}}
 
 def generate_faq(test_limit=None):
     if not os.path.exists(INPUT_CSV):
@@ -136,20 +108,10 @@ def generate_faq(test_limit=None):
         user_prompt = "FACTS:\n" + "\n".join([f"- {f}" for f in prompt_facts_text])
 
         response = openai_helper.openai_llm_request(
-            system_prompt="""You are a web editor for the organization's website. Your job is to create FAQ entries that help prospective and current users find comprehensive answers quickly.
-
-FAITHFULNESS: Every factual claim in your answer must come from the provided facts. You may use connective phrases and light framing to make the answer read naturally, but do not introduce new factual claims from your general knowledge. If the facts say "The fee is $50" you write "The fee is $50." You do not add "typically paid by credit card" unless that's in the facts.
-
-Writing style:
-- Lead with a clear, direct answer in 1-2 sentences
-- Add relevant details and context from the facts—don't stop at a surface-level summary
-- Write in prose by default. Only use bullet points or numbered lists when there are 3 or more parallel items (e.g. a list of requirements, steps, or deadlines)—not for every answer
-- Preserve specific dates, credit hours, fees, and deadlines exactly as stated
-- Synthesize redundant facts—don't repeat the same point twice
-- If facts contain URLs, include them naturally in the answer""",
+            system_prompt=prompts.get("generate_faq.system"),
             user_prompt=user_prompt,
-            tools=tools,
-            tool_choice=tool_choice,
+            tools=prompts.get_tools("generate_faq"),
+            tool_choice=prompts.get_tool_choice("generate_faq"),
             max_tokens=4000
         )
 
