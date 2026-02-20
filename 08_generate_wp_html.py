@@ -36,11 +36,11 @@ SPACER_BLOCK = """<!-- wp:spacer {{"height":"40px"}} -->
 <!-- /wp:spacer -->
 """
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Generate WordPress block HTML from approved FAQ entries.")
     parser.add_argument("--force", action="store_true",
                         help="Include all items regardless of approval status.")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # 1. Load Data
     if not os.path.exists(INPUT_JSON):

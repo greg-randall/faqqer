@@ -22,7 +22,7 @@ class TestGenerateWpHtml:
 
         with patch.object(html_module, 'INPUT_JSON', input_json), \
              patch.object(html_module, 'OUTPUT_HTML', output_html):
-            html_module.main()
+            html_module.main([])
 
         with open(output_html) as f:
             html = f.read()
@@ -43,7 +43,7 @@ class TestGenerateWpHtml:
 
         with patch.object(html_module, 'INPUT_JSON', input_json), \
              patch.object(html_module, 'OUTPUT_HTML', output_html):
-            html_module.main()
+            html_module.main([])
 
         with open(output_html) as f:
             html = f.read()
@@ -64,7 +64,7 @@ class TestGenerateWpHtml:
 
         with patch.object(html_module, 'INPUT_JSON', input_json), \
              patch.object(html_module, 'OUTPUT_HTML', output_html):
-            html_module.main()
+            html_module.main([])
 
         with open(output_html) as f:
             html = f.read()
@@ -91,7 +91,7 @@ class TestGenerateWpHtml:
 
         with patch.object(html_module, 'INPUT_JSON', input_json), \
              patch.object(html_module, 'OUTPUT_HTML', output_html):
-            html_module.main()
+            html_module.main([])
 
         with open(output_html) as f:
             html = f.read()
@@ -122,7 +122,7 @@ class TestGenerateWpHtml:
 
         with patch.object(html_module, 'INPUT_JSON', input_json), \
              patch.object(html_module, 'OUTPUT_HTML', output_html):
-            html_module.main()
+            html_module.main([])
 
         with open(output_html) as f:
             html = f.read()
@@ -142,7 +142,7 @@ class TestGenerateWpHtml:
 
         with patch.object(html_module, 'INPUT_JSON', input_json), \
              patch.object(html_module, 'OUTPUT_HTML', output_html):
-            html_module.main()
+            html_module.main([])
 
         assert not os.path.exists(output_html)
         captured = capsys.readouterr()
