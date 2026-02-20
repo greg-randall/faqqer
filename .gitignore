@@ -18,6 +18,7 @@ runs/
 *.xml
 *.backup.git
 *_error.txt
+*.7z
 
 # Documentation
 *.md
